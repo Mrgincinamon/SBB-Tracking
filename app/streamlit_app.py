@@ -74,11 +74,31 @@ st.title("🚂 SBB Tracker — Verspätungsanalyse")
 st.caption("ZHAW Scientific Programming · FS2026 · Joël Hasler & Patrick Ferreira")
 
 # Datenverfügbarkeit prüfen
-df_delays = load_delays()
+with st.spinner("Lade Verspätungs-Datensatz (2.7 Mio Events)..."):
+    df_delays = load_delays()
 if df_delays.empty:
     st.error("❌ Keine Daten gefunden. Bitte erst Notebook 01 und 02 ausführen, "
              "um die Datenbank und das Prepared-Parquet zu erstellen.")
+    st.info("ℹ️ Anleitung: Aus dem Projekt-Root die Notebooks `01_datenbank_speicherung.ipynb` "
+            "und `02_datenaufbereitung.ipynb` ausführen (z.B. via `jupyter nbconvert --execute`).")
     st.stop()
+
+# KPI-Zeile mit Schluessel-Metriken (sofort sichtbar ohne Tab-Wechsel)
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+_n_total = len(df_delays)
+_mean_delay = df_delays["delay_arr_sec"].mean()
+_pct_late = df_delays["is_late_3min"].mean() * 100
+_n_days = df_delays["betriebstag"].nunique()
+kpi1.metric("Analysierte Halte", f"{_n_total/1e6:.2f} M",
+            help="Zug-Halte mit gültiger Ankunftszeit (Status REAL)")
+kpi2.metric("Ø Verspätung", f"{_mean_delay:.1f} s",
+            help="Mittlere Ankunftsverspätung über alle Halte")
+kpi3.metric("Klassisch verspätet", f"{_pct_late:.2f} %",
+            help="Anteil Halte mit >3 Minuten Verspätung (SBB-Standard)")
+kpi4.metric("Tage Datenbasis", _n_days,
+            help="48 Tage Apr–Mai 2026, hochaufgelöst pro Zug-Halt")
+
+st.markdown("---")
 
 # Sidebar-Filter
 st.sidebar.header("Filter")

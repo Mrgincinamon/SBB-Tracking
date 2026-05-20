@@ -138,53 +138,109 @@ API-Key wird über `.env`-Datei und `python-dotenv` geladen (gitignored).
 
 ### 3.1 H1: Werktag vs. Wochenende (Welch's t-Test)
 
-| Gruppe | n | Mean Delay (s) | Median (s) |
-|---|---|---|---|
-| Werktag | ca. 2.0 Mio | siehe Notebook 03 | siehe Notebook 03 |
-| Wochenende | ca. 0.7 Mio | siehe Notebook 03 | siehe Notebook 03 |
+| Gruppe | n | Mean Delay (s) |
+|---|---|---|
+| Werktag | 1'957'415 | **49.9** |
+| Wochenende | 782'389 | **34.4** |
 
-**Ergebnis (siehe Notebook 03)**: t-Statistik und p-Value werden im Notebook
-gerechnet. Mann-Whitney-U als verteilungsfreier Check.
+**Ergebnis**: **t = 66.65**, **p < 10⁻³⁰⁰** (Welch's t-Test, Heteroskedastizität-tolerant)
 
-**Interpretation**: Werktage zeigen typischerweise höhere mittlere Verspätung
-wegen höherer Zugfrequenz und Rush-Hour-Effekten. Boxplot in Notebook 03
-visualisiert die Verteilung.
+Werktag-Züge sind im Mittel **15.5 Sekunden** stärker verspätet als
+Wochenend-Züge. Bei n ≈ 2.7 Millionen Beobachtungen ist der Effekt
+statistisch hochsignifikant. Mann-Whitney-U-Test in Notebook 03 bestätigt das
+verteilungsfrei.
+
+**Interpretation**: Werktage zeigen erhöhte Verspätung durch höhere
+Zugfrequenz und Rush-Hour-Effekte. Der Median-Verspätung über alle Tage liegt
+bei 28 s, das **95. Perzentil bei 181 s** — d.h. nur ~5 % der Halte
+überschreiten die klassische 3-Minuten-Schwelle.
 
 ### 3.2 H2: Linientyp-Effekt (Einweg-ANOVA)
 
-Top-5 Linientypen nach Halt-Anzahl: **S** (S-Bahn), **IR** (InterRegio),
-**IC** (InterCity), **RE** (RegioExpress), weitere.
+**One-Way ANOVA über 14 Linientypen**: **F = 2'914.9**, **p < 10⁻³⁰⁰**
+(höchst signifikant). Tukey HSD-Post-hoc-Test in Notebook 03 zeigt,
+welche Paare sich konkret unterscheiden.
 
-F-Statistik und p-Value siehe Notebook 03. Erwartungsgemäss haben Fernverkehrs-
-Linien (IC) tendenziell höhere Mean-Verspätung als S-Bahnen — IC-Züge
-sammeln Verspätung über lange Strecken, S-Bahnen werden im Knoten zurückgesetzt.
+Mittlere Verspätung pro Linientyp (sortiert):
+
+| Linientyp | n | Mean Delay (s) | Kategorie |
+|---|---:|---:|---|
+| RJX (RailJet eXpress) | 1'160 | **441.6** | International |
+| TGV | 1'567 | **345.5** | International |
+| EC (EuroCity) | 15'645 | **291.9** | International |
+| EXT (Extrazug) | 404 | 194.8 | Sonderverkehr |
+| ICE | 6'023 | 136.8 | International |
+| TER (TER France) | 19'563 | 65.7 | International |
+| SN (S-Nacht) | 21'937 | 54.5 | Regionalverkehr |
+| **S (S-Bahn)** | **1'699'564** | **48.7** | Regional |
+| RE (RegioExpress) | 158'182 | 45.2 | Regional |
+| R (Regio) | 496'009 | 33.1 | Regional |
+| IC (InterCity) | 119'892 | 31.7 | Fernverkehr CH |
+| IR (InterRegio) | 198'816 | 27.1 | Fernverkehr CH |
+
+**Interpretation**: Internationale Züge (TGV, EC, ICE, RJX) zeigen mit Abstand
+die höchste Mean-Verspätung — sie sammeln Verspätung über lange Strecken im
+Ausland und „importieren" sie in die Schweiz. Innerschweizer Fernverkehr
+(IC, IR) ist überraschend pünktlich (~30 s) — das Netz funktioniert auf
+seinen Hauptachsen sehr gut. S-Bahnen liegen im Mittelfeld (49 s), bedingt
+durch dichte Taktung und enge Knotenanschlüsse.
 
 ### 3.3 H3: Wetter ↔ Verspätung (Pearson + Spearman)
 
-Pro Wettervariable (Niederschlag, Temperatur, Wind) berechnen wir Pearson
-(linear) und Spearman (monoton) gegen `delay_arr_sec`. Beide Tests mit p-Value.
+Pro Wettervariable berechnen wir Pearson (linear) und Spearman (monoton)
+gegen `delay_arr_sec` über n ≈ 2.74 Mio Beobachtungen:
 
-Niederschlag zeigt im erwarteten Bereich eine schwach-positive Korrelation:
-Regen verlängert Bremswege, Türschwellen werden rutschig, mehr Pendler nehmen
-die Bahn statt Velo. Der Effekt ist statistisch signifikant aber inhaltlich
-moderat (r typischerweise 0.05–0.15).
+| Variable | Pearson r | Pearson p | Spearman ρ | Spearman p |
+|---|---:|---:|---:|---:|
+| **Niederschlag** (mm) | **+0.0136** | < 10⁻¹¹¹ | **+0.0586** | < 10⁻³⁰⁰ |
+| Sonnenscheindauer (min) | −0.0234 | < 10⁻³⁰⁰ | −0.0524 | < 10⁻³⁰⁰ |
+| Rel. Luftfeuchte (%) | +0.0181 | < 10⁻¹⁹⁷ | +0.0516 | < 10⁻³⁰⁰ |
+| Temperatur (°C) | −0.0073 | < 10⁻³² | −0.0333 | < 10⁻³⁰⁰ |
+| Windgeschwindigkeit (m/s) | −0.0017 | 0.005 | −0.0006 | 0.34 |
+
+**Interpretation**: Alle Wetter-Effekte sind durch die enorme Stichprobengrösse
+**statistisch signifikant** (ausser Wind im Spearman) — aber die Effekt-Stärke
+ist mit r ≈ 0.01–0.06 **inhaltlich klein**. Niederschlag und Bewölkung
+(antikorreliert mit Sonnenscheindauer) gehen in die erwartete Richtung:
+mehr Regen, weniger Sonne → mehr Verspätung. Spearman-ρ ist durchgängig
+grösser als Pearson-r, was auf einen monoton-aber-nicht-linearen Zusammenhang
+hinweist (z.B. extreme Niederschläge wirken überproportional).
+
+**Praktische Bedeutung**: Wetter erklärt allein nur ~0.3 % der
+Verspätungs-Varianz. Pünktlichkeit hängt dominiert von operativen Faktoren ab.
 
 ### 3.4 H4: Multiple OLS-Regression
 
-Modell:
+Modell (statsmodels `smf.ols`, n = 200'000 Zufalls-Subsample):
 ```
-delay_arr_sec ~ niederschlag_mm + temperatur_c + wind_ms
-              + hour + is_rush_hour + is_weekend
+delay_arr_sec ~ C(is_rush_hour) + C(is_weekend) + C(verkehrsmittel_text)
+              + niederschlag_mm + temperatur_c
 ```
 
-Output siehe Notebook 03: Koeffizienten-Tabelle mit Signifikanz-Sternen
-(* p<0.05, ** p<0.01, *** p<0.001), R² als Anpassungsgüte.
+**Anpassungsgüte**: **R² = 0.0462** (4.62 %), Adj. R² = 0.0462,
+**F = 510.3, p < 10⁻³⁰⁰**
 
-Erwartung: positive Koeffizienten für Niederschlag und Rush-Hour, negativer
-Koeffizient für `is_weekend`. R² liegt typischerweise im Bereich 1–5 %, was
-für die hohe Variabilität von Verspätungen plausibel ist — viele Verspätungen
-sind idiosynkratisch (defekter Türschliesser, Wendezugbildung etc.) und nicht
-durch globale Faktoren erklärbar.
+Wichtigste Koeffizienten (Auswahl, alle mit Standardfehler in Notebook 03):
+
+| Variable | Koeffizient (s) | p-Value | Interpretation |
+|---|---:|---:|---|
+| **Rush-Hour** (True) | **+9.5** | < 10⁻³⁹ | Rush-Hour-Verspätung ~10 s |
+| **Wochenende** (True) | **−13.1** | < 10⁻⁷⁹ | Wochenende ~13 s pünktlicher |
+| **Niederschlag** (pro mm) | **+6.55** | < 10⁻¹⁷ | Pro mm Regen +6.5 s |
+| Temperatur (pro °C) | +0.056 | 0.35 | nicht signifikant |
+| NJ (Nachtzug, vs Referenz) | +537.3 | < 10⁻³⁹ | Sonderfall: wenige Züge, hohe Streuung |
+| TGV (vs Referenz) | +198.7 | < 10⁻⁶ | Internationaler Import-Effekt |
+| EC (vs Referenz) | +196.1 | < 10⁻⁶ | dito |
+| S (vs Referenz) | −67.3 | 0.07 | S-Bahn knapp nicht signifikant pünktlicher |
+
+**Interpretation**:
+1. Die **kombinierten Faktoren erklären nur ~4.6 % der Verspätungs-Varianz** —
+   ehrliche Erkenntnis, dass Verspätungen dominant durch unvorhersagbare,
+   idiosynkratische Ereignisse bestimmt sind (Defekte, einzelne Verspätungen,
+   Personalengpässe).
+2. Die **drei dominierenden Effekte** sind dennoch konsistent mit der
+   Erwartung: Rush-Hour +10 s, Wochenende −13 s, Niederschlag +6.5 s/mm.
+3. Internationale Zugtypen (TGV, EC, NJ) bestätigen den "Import-Effekt".
 
 ### 3.5 LLM-Hypothesen für Krisen-Tage
 
@@ -315,17 +371,70 @@ project/
     └── notebook_renders/               HTML-Versionen der 4 Notebooks (mit Plots)
 ```
 
-### 6.4 Screenshots (vom Reviewer einzufügen)
+### 6.4 Screenshots und Plots
 
-> **Joël & Patrick:** Vor Abgabe folgende Screenshots aufnehmen und hier einfügen:
-> 1. Notebook 01: SQL-Query-Output mit Top-10 Verspätungs-Bahnhöfen
-> 2. Notebook 03: Boxplot Werktag vs. Wochenende
-> 3. Notebook 03: Heatmap Stunde × Wochentag
-> 4. Notebook 03: OLS-Regressions-Output (model.summary())
-> 5. Notebook 04: LLM-Hypothesen-Tabelle
-> 6. Webapp: Folium-Karte der Schweiz mit Verspätungs-Markern
-> 7. Webapp: Pendler-Insight Q&A mit Beispiel-Frage
-> 8. GitHub: Screenshot der Repo-Seite mit Commit-Historie
+#### 6.4.1 Verspätungs-Verteilung (Notebook 03, alle Halte)
+
+![Verteilung und Boxplot der Ankunftsverspätung](screenshots/notebooks/03_analyse_visualisierung_cell08_plot0.png)
+
+Linkes Panel: Histogramm der Ankunftsverspätung (geclippt −60 … +600 s, Spike
+am rechten Rand = Verspätungen ≥ 10 min). Rechtes Panel: Boxplot ohne
+Outlier. Beobachtung: Median knapp über 0, deutlicher Rechts-Skew.
+
+#### 6.4.2 Linientyp-Boxplot (Notebook 03, Top-5)
+
+![Verspätung nach Linien-Typ](screenshots/notebooks/03_analyse_visualisierung_cell17_plot0.png)
+
+Boxplot der 5 häufigsten Linientypen. S-Bahn (S) hat den höchsten Median,
+gefolgt von RE; IR und IC sind besser. Streuung in allen Gruppen
+ähnlich gross.
+
+#### 6.4.3 Time-of-Day-Heatmap (Notebook 03)
+
+![Mittlere Verspätung nach Wochentag und Stunde](screenshots/notebooks/03_analyse_visualisierung_cell25_plot0.png)
+
+Heatmap: Dienstag 0–3 Uhr ist auffällig (dunkelste Zellen), Werktag-Abend
+17–22 Uhr durchgehend erhöht, Wochenenden tendenziell pünktlicher.
+
+#### 6.4.4 Streamlit-Webapp: Karte
+
+![Webapp Karte](screenshots/webapp_01_karte.png)
+
+Folium-Karte mit 569 Bahnhöfen nach Filterung (mindestens 200 Halte).
+Farbskala grün → rot codiert die mittlere Ankunftsverspätung.
+
+#### 6.4.5 Streamlit-Webapp: Time-of-Day
+
+![Webapp Time-of-Day](screenshots/webapp_02_time_of_day.png)
+
+Interaktive Plotly-Heatmap mit Annotationen pro Zelle. Im Filter-Panel
+können Datums- und Kantons-Filter angewendet werden.
+
+#### 6.4.6 Streamlit-Webapp: Pendler-Insight (LLM)
+
+![Webapp Pendler-Insight](screenshots/webapp_03_pendler_insight.png)
+
+Live-Q&A-Interface mit Claude Sonnet 4.6. Im Vorab geladene Tabelle zeigt die
+10 Krisen-Tage mit LLM-klassifizierter Ursache und Konfidenz-Skala.
+
+#### 6.4.7 Top-10 Bahnhöfe mit höchster Mean-Verspätung
+
+| Rang | Station | n | Mean Delay (s) |
+|---:|---|---:|---:|
+| 1 | Buchs SG | 2'405 | **195.5** |
+| 2 | St. Margrethen SG | 2'311 | 169.2 |
+| 3 | Basel St. Johann | 1'523 | 127.2 |
+| 4 | Hünenberg Zythus | 3'111 | 115.8 |
+| 5 | Stabio | 3'040 | 110.4 |
+| 6 | Neuhausen Rheinfall | 2'568 | 107.8 |
+| 7 | Zug Chollermüli | 6'232 | 107.4 |
+| 8 | Cham Alpenblick | 6'234 | 105.1 |
+| 9 | Zug Schutzengel | 6'053 | 103.9 |
+| 10 | Paradiso | 7'522 | 101.7 |
+
+Auffällig: Grenzbahnhöfe (Buchs SG, St. Margrethen SG zu Vorarlberg/Liechtenstein,
+Basel St. Johann zur DB, Stabio/Paradiso zum TPL Tessin) dominieren — der
+"Import-Effekt" aus dem internationalen Verkehr ist auch geografisch sichtbar.
 
 ---
 

@@ -1,5 +1,11 @@
-"""Convert presentation Markdown to PDF via markdown-pdf library."""
+"""Convert presentation Markdown to PDF via markdown-pdf library.
 
+Wichtig: Wir wechseln das Arbeitsverzeichnis auf presentation/ bevor der PDF
+gebaut wird, damit relative Bild-Pfade wie 'screenshots/...' aus der Markdown
+korrekt aufgeloest werden (markdown-pdf nutzt CWD).
+"""
+
+import os
 import sys
 from pathlib import Path
 
@@ -28,6 +34,8 @@ def main() -> int:
         print(f"FEHLER: {SRC} nicht gefunden")
         return 1
     text = SRC.read_text(encoding="utf-8")
+    # CWD auf presentation/ wechseln damit ![](screenshots/...) Pfade funktionieren
+    os.chdir(SRC.parent)
     pdf = MarkdownPdf(toc_level=2, optimize=True)
     pdf.add_section(Section(text, toc=True), user_css=CSS)
     pdf.meta["title"] = "SBB Tracker — Praesentation"

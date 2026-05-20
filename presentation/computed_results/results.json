@@ -1,0 +1,288 @@
+{
+  "n_total_events": 2739804,
+  "n_valid_arrival": 2739804,
+  "mean_delay_sec": 45.44584284131274,
+  "median_delay_sec": 28.0,
+  "p95_delay_sec": 181.0,
+  "pct_classically_delayed": 5.02948386088932,
+  "pct_early_or_punctual": 28.812571994201047,
+  "test_welch_ttest": {
+    "name": "Welch's t-Test Werktag vs Wochenende",
+    "t_statistic": 66.6534782442596,
+    "p_value": 0.0,
+    "mean_werktag_sec": 49.85304751419602,
+    "mean_wochenende_sec": 34.4197055428949,
+    "n_werktag": 1957415,
+    "n_wochenende": 782389,
+    "significant_at_005": true
+  },
+  "test_anova_linientyp": {
+    "name": "One-Way ANOVA: Verspaetung nach Linien-Typ",
+    "f_statistic": 2914.878166091082,
+    "p_value": 0.0,
+    "groups": [
+      "EC",
+      "EXT",
+      "IC",
+      "ICE",
+      "IR",
+      "NJ",
+      "PE",
+      "R",
+      "RE",
+      "RJX",
+      "S",
+      "SN",
+      "TER",
+      "TGV"
+    ],
+    "n_groups": 14,
+    "means_per_group": {
+      "AG": 30.010204081632654,
+      "EC": 291.9134547778843,
+      "EXT": 194.8391089108911,
+      "IC": 31.689879224635504,
+      "ICE": 136.77785156898557,
+      "IR": 27.144359608884596,
+      "NJ": 22.88082191780822,
+      "PE": 28.427027027027027,
+      "R": 33.10528034773563,
+      "RB": 128.3448275862069,
+      "RE": 45.194446902934594,
+      "RJX": 441.61034482758623,
+      "S": 48.66752061116851,
+      "SN": 54.51789214568993,
+      "TER": 65.72662679548127,
+      "TGV": 345.5003190810466
+    },
+    "n_per_group": {
+      "AG": 98,
+      "EC": 15645,
+      "EXT": 404,
+      "IC": 119892,
+      "ICE": 6023,
+      "IR": 198816,
+      "NJ": 730,
+      "PE": 185,
+      "R": 496009,
+      "RB": 29,
+      "RE": 158182,
+      "RJX": 1160,
+      "S": 1699564,
+      "SN": 21937,
+      "TER": 19563,
+      "TGV": 1567
+    },
+    "significant_at_005": true
+  },
+  "weather_columns_found": [
+    "temperatur_c",
+    "niederschlag_mm",
+    "wind_ms",
+    "feuchte_pct",
+    "sonne_min"
+  ],
+  "test_correlation": {
+    "temperatur_c": {
+      "n": 2738031,
+      "pearson_r": -0.0072519142490087,
+      "pearson_p": 3.55758567387557e-33,
+      "spearman_rho": -0.03333705651324806,
+      "spearman_p": 0.0
+    },
+    "niederschlag_mm": {
+      "n": 2738031,
+      "pearson_r": 0.013573913306391829,
+      "pearson_p": 9.81879852168642e-112,
+      "spearman_rho": 0.058579477884802264,
+      "spearman_p": 0.0
+    },
+    "wind_ms": {
+      "n": 2738031,
+      "pearson_r": -0.0017128721429421154,
+      "pearson_p": 0.004592766774863443,
+      "spearman_rho": -0.000579654201201753,
+      "spearman_p": 0.33748154355094034
+    },
+    "feuchte_pct": {
+      "n": 2738031,
+      "pearson_r": 0.018122169659017733,
+      "pearson_p": 1.3573847605786788e-197,
+      "spearman_rho": 0.05159819693009664,
+      "spearman_p": 0.0
+    },
+    "sonne_min": {
+      "n": 2738031,
+      "pearson_r": -0.023420612118082582,
+      "pearson_p": 0.0,
+      "spearman_rho": -0.05243877863081568,
+      "spearman_p": 0.0
+    }
+  },
+  "test_ols": {
+    "name": "Multiple OLS-Regression",
+    "formula": "delay_arr_sec ~ C(is_rush_hour) + C(is_weekend) + C(verkehrsmittel_text) + niederschlag_mm + temperatur_c",
+    "n_observations": 200000,
+    "r_squared": 0.04624121441975848,
+    "adj_r_squared": 0.04615059827351364,
+    "f_statistic": 510.29773761140143,
+    "f_p_value": 0.0,
+    "coefficients": {
+      "Intercept": {
+        "value": 116.58760423743054,
+        "p": 0.001623366985708999
+      },
+      "C(is_rush_hour)[T.True]": {
+        "value": 9.536529086813369,
+        "p": 1.210280218219284e-39
+      },
+      "C(is_weekend)[T.True]": {
+        "value": -13.113264684061392,
+        "p": 6.84729100682939e-80
+      },
+      "C(verkehrsmittel_text)[T.EC]": {
+        "value": 196.07781371199962,
+        "p": 1.3318904840424261e-07
+      },
+      "C(verkehrsmittel_text)[T.EXT]": {
+        "value": 177.61969733449573,
+        "p": 3.4009230905198254e-05
+      },
+      "C(verkehrsmittel_text)[T.IC]": {
+        "value": -85.2222079614151,
+        "p": 0.021281376468335188
+      },
+      "C(verkehrsmittel_text)[T.ICE]": {
+        "value": 20.22167277794541,
+        "p": 0.5896316968023042
+      },
+      "C(verkehrsmittel_text)[T.IR]": {
+        "value": -89.46227134744899,
+        "p": 0.015598151203451288
+      },
+      "C(verkehrsmittel_text)[T.NJ]": {
+        "value": 537.2795161978879,
+        "p": 6.544096042496704e-40
+      },
+      "C(verkehrsmittel_text)[T.PE]": {
+        "value": -107.05223724094513,
+        "p": 0.05807812458628532
+      },
+      "C(verkehrsmittel_text)[T.R]": {
+        "value": -83.25914078547933,
+        "p": 0.024381515248658187
+      },
+      "C(verkehrsmittel_text)[T.RB]": {
+        "value": -25.135153893254245,
+        "p": 0.7972537547072589
+      },
+      "C(verkehrsmittel_text)[T.RE]": {
+        "value": -71.56728211233349,
+        "p": 0.05307988578387135
+      },
+      "C(verkehrsmittel_text)[T.RJX]": {
+        "value": 257.62148562948465,
+        "p": 4.2251532770255667e-11
+      },
+      "C(verkehrsmittel_text)[T.S]": {
+        "value": -67.31598132141048,
+        "p": 0.0687243052749449
+      },
+      "C(verkehrsmittel_text)[T.SN]": {
+        "value": -57.134875476846084,
+        "p": 0.12376178096331204
+      },
+      "C(verkehrsmittel_text)[T.TER]": {
+        "value": -44.493161710695404,
+        "p": 0.23082189247206594
+      },
+      "C(verkehrsmittel_text)[T.TGV]": {
+        "value": 198.6945999609564,
+        "p": 2.921483188535157e-07
+      },
+      "niederschlag_mm": {
+        "value": 6.5529289693119575,
+        "p": 3.941837246053529e-18
+      },
+      "temperatur_c": {
+        "value": 0.055785642492566824,
+        "p": 0.3495264472175031
+      }
+    }
+  },
+  "top_10_stations_highest_mean_delay": [
+    {
+      "station": "Buchs SG",
+      "n": 2405,
+      "mean_sec": 195.53305613305614
+    },
+    {
+      "station": "St. Margrethen SG",
+      "n": 2311,
+      "mean_sec": 169.1540458675898
+    },
+    {
+      "station": "Basel St. Johann",
+      "n": 1523,
+      "mean_sec": 127.23834537097834
+    },
+    {
+      "station": "Hünenberg Zythus",
+      "n": 3111,
+      "mean_sec": 115.78495660559305
+    },
+    {
+      "station": "Stabio",
+      "n": 3040,
+      "mean_sec": 110.38717105263157
+    },
+    {
+      "station": "Neuhausen Rheinfall",
+      "n": 2568,
+      "mean_sec": 107.82204049844236
+    },
+    {
+      "station": "Zug Chollermüli",
+      "n": 6232,
+      "mean_sec": 107.39521822849808
+    },
+    {
+      "station": "Cham Alpenblick",
+      "n": 6234,
+      "mean_sec": 105.13987808790503
+    },
+    {
+      "station": "Zug Schutzengel",
+      "n": 6053,
+      "mean_sec": 103.88022468197588
+    },
+    {
+      "station": "Paradiso",
+      "n": 7522,
+      "mean_sec": 101.67136399893646
+    }
+  ],
+  "verkehrsmittel_text_distribution": {
+    "S": 1699564,
+    "R": 496009,
+    "IR": 198816,
+    "RE": 158182,
+    "IC": 119892,
+    "SN": 21937,
+    "TER": 19563,
+    "EC": 15645,
+    "ICE": 6023,
+    "TGV": 1567,
+    "RJX": 1160,
+    "NJ": 730,
+    "EXT": 404,
+    "PE": 185,
+    "AG": 98,
+    "RB": 29
+  },
+  "data_range": {
+    "start": "2026-03-31",
+    "end": "2026-05-20",
+    "n_days": 51
+  }
+}
