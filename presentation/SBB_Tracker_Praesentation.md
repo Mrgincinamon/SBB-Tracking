@@ -79,6 +79,41 @@ interaktiven Webapp:
 
 Alle Datensätze sind öffentlich (CC-BY-Lizenz, kein API-Key nötig).
 
+### 2.1.1 Design-Entscheidung: Auflösung vor Zeitspanne
+
+Bei den Ist-Daten stand zu Projektbeginn eine bewusste Wahl an:
+
+- **(a) Lange Zeitspanne, geringe Auflösung** — Wochen-Aggregate über 5+ Jahre
+  (analog zum Covid-Vorlageprojekt). Dataset SBB „Kundenpünktlichkeit-Monat"
+  hätte rund 130 Zeilen ergeben.
+- **(b) Kurze Zeitspanne, hohe Auflösung** — 48 Tage pro Zug-Halt aller
+  SBB-Stationen, mit Wetter-Join pro Stunde.
+
+Wir entschieden uns für **(b)**. Begründung:
+
+| Aspekt | (a) Wochen-Aggregate 5 Jahre | (b) Stations-Auflösung 48 Tage |
+|---|---|---|
+| Rohe Daten-Zeilen | ~265 | **2'739'804** |
+| Spalten pro Zeile | ~5 | **31** (inkl. Wetter, Zeit-Features) |
+| Datenpunkte gesamt | ~1'300 | **~85'000'000** |
+| Stunden-Effekt analysierbar? | nein | **ja** |
+| Bahnhof-Vergleich möglich? | nein | **ja** |
+| Wetter-Korrelation pro Stunde? | nein | **ja** |
+| OLS-Regression mit Kategorien (16 Zugtypen)? | n zu klein | **n = 200'000 stable** |
+| Story-Faktor „5 Jahre Trend" | hoch | mittel |
+
+Statistisch wären auf (a) drei unserer vier geplanten Tests (ANOVA Linientyp,
+Pearson Wetter, OLS-Regression) nicht durchführbar gewesen. Variante (b)
+liefert **rund 17'000× mehr Datenpunkte** als (a) und macht alle vier
+geplanten statistischen Tests inhaltlich aussagekräftig.
+
+Die Praxis-Limitation von (b) — kein Covid-Vorher-Nachher-Vergleich — adressieren
+wir transparent in Sektion 4 (Limitationen).
+
+Disk-Realität: Die volle Ist-Daten-Historie 2019–2025 wären 1.1 TB Roh-CSV;
+unsere 48-Tage-Stichprobe ist **65 MB Parquet nach Filter** (Speed-up Faktor
+~10'000 in der Verarbeitung).
+
 ### 2.2 Datenaufbereitung (Notebook 02)
 
 - **Filter**: Nur `produkt_id == 'Zug'` und `betreiber_abk == 'SBB'` (~3 % der
