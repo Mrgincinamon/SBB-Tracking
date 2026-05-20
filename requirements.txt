@@ -5,9 +5,10 @@ seaborn>=0.13
 scipy>=1.11
 statsmodels>=0.14
 
-jupyter>=1.0
+# Jupyter kernel only — VS Code's Jupyter extension renders notebooks,
+# no need for full `jupyter` + `notebook` meta-packages (those trigger
+# Windows long-path errors at C:\...\venv\share\jupyter\labextensions\...)
 ipykernel>=6.29
-notebook>=7.0
 
 requests>=2.31
 
