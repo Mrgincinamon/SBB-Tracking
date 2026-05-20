@@ -203,6 +203,33 @@ def build_cells() -> list:
         f_stat, anova_p = stats.f_oneway(*groups)
         print(f"\\nOne-way ANOVA: F = {f_stat:.3f}, p = {anova_p:.2e}")
     """))
+
+    cells.append(md("""
+        ### Tukey HSD Post-hoc: welche Linientyp-Paare unterscheiden sich konkret?
+
+        Eine signifikante ANOVA sagt nur, dass mindestens ein Paar unterschiedlich
+        ist — sie sagt nicht **welches**. Der Tukey-HSD-Test ist die klassische
+        Post-hoc-Methode, die ALLE Paar-Vergleiche mit Familywise-Error-Control
+        macht. Reject = das Paar unterscheidet sich signifikant.
+    """))
+    cells.append(code("""
+        from statsmodels.stats.multicomp import pairwise_tukeyhsd
+
+        # Stichprobe ziehen (100k pro Gruppe), sonst dauert Tukey ewig
+        np.random.seed(42)
+        sample_dfs = []
+        for t in top_types:
+            sub = df_top.loc[df_top["verkehrsmittel_text"] == t]
+            sample_dfs.append(sub.sample(min(len(sub), 100_000), random_state=42))
+        tukey_df = pd.concat(sample_dfs, ignore_index=True)
+        tukey_res = pairwise_tukeyhsd(
+            endog=tukey_df["delay_arr_sec"].values,
+            groups=tukey_df["verkehrsmittel_text"].values,
+            alpha=0.05,
+        )
+        print(tukey_res.summary())
+    """))
+
     cells.append(code("""
         # Visualisierung
         plot_df = df_top[["verkehrsmittel_text", "delay_arr_sec"]].copy()

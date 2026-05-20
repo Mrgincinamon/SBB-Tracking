@@ -273,7 +273,7 @@ diese Erkenntnisse für einzelne Pendler-Strecken konkret abfragbar.
 
 | # | Kriterium | Erfüllung |
 |---|---|---|
-| 1 | Creativity (nicht im Kurs behandelt) | ✅ statsmodels OLS-Regression, KDTree für Spatial-Join, LLM-Pendler-Insight, programmatic Notebook-Build via nbclient |
+| 1 | Creativity (nicht im Kurs behandelt) | ✅ statsmodels OLS-Regression, **Tukey HSD Post-hoc-Test**, KDTree für Spatial-Join, LLM-Pendler-Insight, programmatic Notebook-Build via nbclient, **Dockerfile für Reproduzierbarkeit**, **pytest-Test-Suite (23 Tests)** |
 | 2 | Web scraper / Web API | ✅ `download_istdaten.py` (CKAN-HTML-Scraping mit Regex), `download_stations.py` (REST-API), `download_weather.py` (HTTP) |
 | 3 | Database (SQLite) + SQL queries | ✅ Notebook 01: 3 Tabellen, 5 Beispiel-Queries (SELECT, WHERE, GROUP BY, JOIN, ORDER BY, LIMIT) |
 | 4 | LLM-Nutzung | ✅ Notebook 04 (Krisen-Tag-Klassifikation) + Webapp (Pendler-Insight Live-Q&A) mit Anthropic Claude Sonnet 4.6 |
@@ -305,8 +305,14 @@ project/
 ├── data/
 │   ├── raw/                            Roh-Downloads (gitignored, lokal ~720 MB)
 │   └── processed/                      DB + delays_prepared.parquet (gitignored)
+├── tests/
+│   └── test_utils.py                   ✅ 23 pytest-Tests fuer utils.py
+├── Dockerfile                          ✅ Reproduzierbarer Container fuer die Webapp
+├── .dockerignore
 └── presentation/
-    └── SBB_Tracker_Praesentation.md    Dieses Dokument
+    ├── SBB_Tracker_Praesentation.md    Dieses Dokument
+    ├── SBB_Tracker_Praesentation.pdf   PDF-Version (markdown-pdf generiert)
+    └── notebook_renders/               HTML-Versionen der 4 Notebooks (mit Plots)
 ```
 
 ### 6.4 Screenshots (vom Reviewer einzufügen)

@@ -1,0 +1,11 @@
+venv/
+data/
+.git/
+.claude/
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+.ipynb_checkpoints/
+node_modules/
+*.log
