@@ -59,11 +59,15 @@ desktop.ini
 
 # --- Data (large files — exclude from repo per project rubric) ---
 data/raw/
+data/processed/
 *.zip
 *.tar.gz
 *.7z
 *.parquet
 *.feather
+*.db
+*.sqlite
+*.sqlite3
 
 # Keep folder structure with .gitkeep
 !data/raw/.gitkeep
