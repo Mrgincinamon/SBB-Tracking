@@ -40,6 +40,11 @@ st.set_page_config(
 load_dotenv(utils.project_root() / ".env")
 MODEL_NAME = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
+
+def chf(n) -> str:
+    """Zahl mit Schweizer Tausendertrennung (Apostroph statt Komma): 20'444."""
+    return f"{n:,}".replace(",", "'")
+
 # SBB-Zug-Loading-Animation: handgezeichneter SVG-Zug (kein Emoji) faehrt auf
 # Gleisen in SBB-Rot. CSS-Animation laeuft browserseitig waehrend des API-Calls.
 # Hinweis: Eigene SVG-Grafik im SBB-Farbstil (#EB0000), KEIN offizielles SBB-Asset.
@@ -157,6 +162,16 @@ st.markdown(
     [data-baseweb='tab-highlight'] {
         background-color: #EB0000 !important;
         height: 3px !important;
+    }
+
+    /* Statt Lade-Animation: noch nicht aktualisierte Elemente während eines
+       (Fragment-)Reruns sanft verwischen. data-stale wird von Streamlit auf
+       Elemente gesetzt, die gerade neu berechnet werden. */
+    [data-stale='true'] {
+        filter: blur(2.5px);
+        opacity: 0.65;
+        transition: filter 0.12s ease-in, opacity 0.12s ease-in;
+        pointer-events: none;
     }
     </style>
     """,
@@ -382,17 +397,15 @@ def _karte_panel(selected_cantons):
                     f"<b>{r['designationofficial']}</b> ({r['cantonabbreviation']})<br>"
                     f"Mean Delay: {r['mean_delay']} s<br>"
                     f"Klassisch verspätet: {r['pct_late']}%<br>"
-                    f"Halte (Stichprobe): {r['n_halte']:,}",
+                    f"Halte (Stichprobe): {chf(r['n_halte'])}",
                     max_width=300),
             ).add_to(m)
         colormap.add_to(m)  # Legende
         return m.get_root().render()
 
-    # Zug-Loader waehrend des (auf Cache-Miss langsamen) Karten-Builds
-    map_ph = st.empty()
-    map_ph.markdown(train_loader_html("Karte wird geladen …"), unsafe_allow_html=True)
+    # Kein Zug-Loader hier: der Fragment-Rerun ist kurz, stattdessen werden die
+    # noch nicht aktualisierten Elemente per CSS sanft verwischt (data-stale).
     map_html = build_map_html(tuple(selected_cantons), min_halte, min_delay)
-    map_ph.empty()
     if map_html:
         components.html(map_html, height=550)
     else:
@@ -428,8 +441,6 @@ def _tod_panel(df):
     nicht die ganze App. Heatmap ist gecacht -> Loader nur beim ersten Build."""
     st.header("Verspätung nach Tageszeit und Wochentag")
 
-    tod_ph = st.empty()
-    tod_ph.markdown(train_loader_html("Auswertung lädt …"), unsafe_allow_html=True)
     pivot = _tod_pivot(tuple(selected_cantons))
     fig = px.imshow(
         pivot,
@@ -439,7 +450,6 @@ def _tod_panel(df):
         text_auto=".0f",
     )
     fig.update_layout(height=400, margin=dict(l=40, r=20, t=30, b=40))
-    tod_ph.empty()
     st.plotly_chart(fig, width="stretch")
 
     # Drill-Down: Wochentag + Stunde auswählen → Kennzahlen passen sich an
@@ -477,7 +487,7 @@ def _tod_panel(df):
                      "aus Tag und/oder Stunde. Der kleine Wert darunter zeigt die "
                      "Abweichung vom Gesamtschnitt.",
             )
-            c2.metric("Halte in Auswahl", f"{len(sub):,}",
+            c2.metric("Halte in Auswahl", chf(len(sub)),
                       help="Wie viele Zug-Halte in diese Auswahl fallen. Mehr "
                            "Halte bedeuten einen verlässlicheren Durchschnitt.")
             c3.metric("Abweichung vom Schnitt",
@@ -601,7 +611,7 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
             rain = w.loc[w["niederschlag_mm"] > 0, "delay_arr_sec"].mean()
             dry = w.loc[w["niederschlag_mm"] == 0, "delay_arr_sec"].mean()
             weather_str = (
-                f"\n\nWetter (n={len(w):,} Halte mit MeteoSchweiz-Daten):\n"
+                f"\n\nWetter (n={chf(len(w))} Halte mit MeteoSchweiz-Daten):\n"
                 f"  Regenstunden: {rain:.1f}s vs. trockene Stunden: {dry:.1f}s "
                 f"(Effekt klein, vgl. Notebook 03: |r| < 0.06)"
             )
@@ -615,7 +625,7 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
                .agg(["mean", "count"]).query("count >= 100")
                .sort_values("mean").round(1))
     type_str = "\n".join(
-        f"  {typ}: {row['mean']:.1f}s (n={int(row['count']):,})"
+        f"  {typ}: {row['mean']:.1f}s (n={chf(int(row['count']))})"
         for typ, row in by_type.iterrows()
     )
 
@@ -624,7 +634,7 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
                  .agg(["mean", "count"]).query("count >= 500")
                  .sort_values("mean", ascending=False).head(5).round(1))
     top5_str = "\n".join(
-        f"  {name}: {row['mean']:.1f}s (n={int(row['count']):,})"
+        f"  {name}: {row['mean']:.1f}s (n={chf(int(row['count']))})"
         for name, row in top5_late.iterrows()
     )
 
@@ -642,7 +652,7 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
                            .sort_values("count", ascending=False).head(8).round(1))
             if len(matched_agg) > 0:
                 station_block = "\n\nZur Frage passende Bahnhöfe (Keyword-Match):\n" + "\n".join(
-                    f"  {name}: {row['mean']:.1f}s (n={int(row['count']):,})"
+                    f"  {name}: {row['mean']:.1f}s (n={chf(int(row['count']))})"
                     for name, row in matched_agg.iterrows()
                 )
 
@@ -654,7 +664,7 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
         ].head(5).to_string(index=False)
 
     return f"""Datenbasis SBB-Verspätungen {df['betriebstag'].min()} bis {df['betriebstag'].max()} ({df['betriebstag'].nunique()} Tage):
-- {n_total:,} Halte (Zug + SBB-only, Status REAL)
+- {chf(n_total)} Halte (Zug + SBB-only, Status REAL)
 - Mittlere Ankunftsverspätung gesamt: {mean_delay:.1f}s
 - Anteil >3 Min verspätet: {pct_late:.2f}%
 - Werktag {wt_mean:.1f}s vs Wochenende {we_mean:.1f}s
