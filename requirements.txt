@@ -19,3 +19,9 @@ plotly>=5.18
 
 python-dotenv>=1.0
 anthropic>=0.40
+
+# Tests + Präsentation/Build
+pytest>=8.0
+markdown-pdf>=1.3        # presentation/*.md -> PDF (build_pdf.py)
+python-pptx>=1.0         # PowerPoint-Foliendeck (build_pptx.py)
+# playwright>=1.40       # optional: Webapp-Screenshots (capture_webapp_screenshots.py)

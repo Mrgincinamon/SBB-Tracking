@@ -13,9 +13,22 @@
 
 ## Hauptbefunde
 
-Datenbasis: 48 Tage (31.03.–19.05.2026), 3.2 Millionen SBB-Zug-Events.
-Detaillierte Resultate inkl. p-Values siehe `notebooks/03_analyse_visualisierung.ipynb`
-und `presentation/SBB_Tracker_Praesentation.md`.
+Datenbasis: **48 Betriebstage** (31.03.–19.05.2026), **2.74 Mio** gemessene
+Zug-Halte (Status REAL, aus 3.2 Mio Roh-Events gefiltert).
+
+| Forschungsfrage | Ergebnis | Effektstärke |
+|---|---|---|
+| F1 Werktag vs. Wochenende | 50.1 s vs. 34.6 s, t = 95.0, p < 10⁻³⁰⁰ | **Cohen's d = 0.12 (klein)** |
+| F2 Linientyp (ANOVA) | F = 8'450, p < 10⁻³⁰⁰ | **η² = 0.039 (klein)** |
+| F3 Wetter ↔ Verspätung | alle p < 10⁻⁸⁰ | **\|r\| < 0.04 (trivial)** |
+| F4 OLS-Regression | R² = 0.043 | erklärt nur ~4 % der Varianz |
+
+**Kernaussage**: Bei n ≈ 2.7 Mio ist *jeder* Effekt statistisch signifikant —
+die **Effektstärken** zeigen aber, dass die Unterschiede praktisch klein sind.
+Verspätung ist dominant idiosynkratisch. Verspätungs-Hotspots sind die
+**Grenzbahnhöfe** (Import-Effekt internationaler Züge). Detaillierte Resultate
+inkl. p-Werten, CIs und Robustheits-Checks: `notebooks/03_analyse_visualisierung.ipynb`
+und `presentation/SBB_Tracker_Praesentation.pdf`.
 
 ## Datenquellen
 
@@ -40,14 +53,27 @@ project/
 │   ├── _nb_builder.py                     Notebook-Build-Pipeline
 │   └── build_notebook_NN.py               Re-build der Notebooks
 ├── app/
-│   ├── streamlit_app.py                   Webapp (4 Tabs)
-│   └── utils.py                           Geteilte Helper (DB, KDTree, …)
+│   ├── streamlit_app.py                   Webapp (4 Tabs, SBB-Theme)
+│   └── utils.py                           Geteilte Helper (DB, KDTree, Klassifikation)
+├── tests/
+│   └── test_utils.py                      pytest-Suite (27 Tests)
 ├── data/
 │   ├── raw/        (gitignored, ~720 MB)
 │   └── processed/  (gitignored, ~770 MB DB + Parquet)
+├── .streamlit/
+│   └── config.toml                        SBB-Theme (primaryColor #EB0000)
 └── presentation/
-    └── SBB_Tracker_Praesentation.md       → konvertierbar zu PDF
+    ├── SBB_Tracker_Praesentation.md       Quelle (Markdown)
+    ├── SBB_Tracker_Praesentation.pdf      Abgabe-Dokument (markdown-pdf)
+    ├── SBB_Tracker_Praesentation.pptx     Foliendeck für Video (mit Sprechernotizen)
+    ├── computed_results/results.json      Maschinell berechnete Stats (Single Source)
+    ├── notebook_renders/                  Notebooks als HTML
+    └── screenshots/                       Webapp- + Notebook-Plots
 ```
+
+Build-Skripte (`scripts/`): `build_notebook_NN.py`, `compute_results.py`
+(Stats → results.json), `build_pdf.py`, `build_pptx.py`, `extract_notebook_plots.py`,
+`capture_webapp_screenshots.py`.
 
 ## Setup (Reproduzierbarkeit)
 
@@ -83,19 +109,39 @@ notepad .env    # ANTHROPIC_API_KEY eintragen
 # 7. Webapp starten
 & venv\Scripts\streamlit.exe run app\streamlit_app.py
 # Öffnet auf http://localhost:8501
+
+# 8. (optional) Tests, Stats + Präsentation regenerieren
+& venv\Scripts\python.exe -m pytest tests\ -q
+& venv\Scripts\python.exe scripts\compute_results.py   # results.json
+& venv\Scripts\python.exe scripts\build_pdf.py         # PDF
+& venv\Scripts\python.exe scripts\build_pptx.py        # PowerPoint
 ```
+
+## Webapp-Features (4 Tabs)
+
+- **🗺️ Karte** — Folium-Heatmap der Bahnhof-Verspätungen; zwei Regler
+  (Rauschfilter + Hotspot-Schwelle) isolieren die Verspätungs-Hotspots.
+- **🕐 Time-of-Day** — interaktive Plotly-Heatmap Stunde × Wochentag mit Drilldown.
+- **🤖 Pendler-Insight** — LLM-Berater (Claude Sonnet 4.6), antwortet
+  ausschliesslich auf Basis der Projektdaten (keine Halluzination).
+- **ℹ️ Über** — Datenquellen + Lizenzen.
+
+Einheitliches SBB-Theme (`.streamlit/config.toml`, primaryColor `#EB0000`).
 
 ## Tech-Stack
 
 - **Python 3.12** (kursvorgegeben)
-- **pandas / numpy / scipy / statsmodels** — Daten + Statistik
+- **pandas / numpy / scipy / statsmodels** — Daten + Statistik (inkl. Effektstärken,
+  Konfidenzintervalle, Tukey-HSD, Breusch-Pagan, VIF)
 - **matplotlib / seaborn / plotly** — Visualisierungen
-- **sqlite3** — Datenbank
+- **sqlite3** — Datenbank (3 Tabellen, SQL-Queries)
 - **folium / streamlit-folium** — Karte
 - **streamlit** — Webapp
 - **anthropic + python-dotenv** — LLM-Integration
 - **pyarrow** — Parquet-I/O
-- **nbformat + nbclient** — Build-Pipeline
+- **pytest** — Test-Suite (27 Tests)
+- **markdown-pdf / python-pptx** — Präsentation (PDF + PowerPoint)
+- **nbformat + nbclient** — Notebook-Build-Pipeline
 
 ## Lizenzen
 
@@ -104,5 +150,15 @@ notepad .env    # ANTHROPIC_API_KEY eintragen
 
 ## Bewertungs-Rubrik
 
-Siehe `presentation/SBB_Tracker_Praesentation.md` Sektion 6 — alle 8
+Siehe `presentation/SBB_Tracker_Praesentation.pdf` Sektion 6 — alle 8
 Mindestanforderungen + alle 6 Bonus-Punkte sind im Projekt abgedeckt.
+
+## Abgabe
+
+Details + Checkliste in [`SUBMISSION.md`](SUBMISSION.md). Kurz:
+
+- **Abgabe (Moodle)**: ZIP mit `SBB_Tracker_Praesentation.pdf` + `SBB_Tracker_Video.mp4`
+- **Video** (~10 Min): Live-Demo der Webapp + Notebook-Highlights — die
+  PowerPoint (`presentation/SBB_Tracker_Praesentation.pptx`, mit Sprechernotizen)
+  dient als Foliendeck.
+- **Frist**: 27.05.2026, 23:59
