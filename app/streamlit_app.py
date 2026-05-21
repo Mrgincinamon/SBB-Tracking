@@ -369,7 +369,7 @@ TRAIN_LOADER_HTML = f"""
 </style>
 <div class="sbb-loader-wrap">
   <div class="sbb-track"><div class="sbb-train">{_TRAIN_SVG}</div></div>
-  <div class="sbb-loader-text">Claude wertet die Fahrplandaten aus …</div>
+  <div class="sbb-loader-text">deine Anfrage wird ausgewertet</div>
 </div>
 """
 
