@@ -234,15 +234,28 @@ tab_karte, tab_tod, tab_insight, tab_about = st.tabs([
 with tab_karte:
     st.header("Verspätungs-Hotspots auf der Schweizer Karte")
     st.caption("Pro Bahnhof: durchschnittliche Ankunftsverspätung (Sekunden). "
-               "Farbskala von hellrot (pünktlich) bis dunkelrot (stark verspätet).")
+               "Farbskala von hellrot (pünktlich) bis dunkelrot (stark verspätet). "
+               "Mit dem Hotspot-Regler rechts lassen sich gezielt die "
+               "verspätungs­anfälligsten Bahnhöfe isolieren.")
 
-    min_halte = st.slider(
-        "Mindestanzahl Halte pro Bahnhof (Filter gegen Rauschen)",
-        min_value=50, max_value=2000, value=200, step=50,
-        help="Gesamtzahl der Zug-Halte an diesem Bahnhof über den ganzen "
-             "48-Tage-Zeitraum (nicht pro Tag). Bahnhöfe mit weniger Halten "
-             "werden ausgeblendet, da ihr Mittelwert statistisch unzuverlässig ist.",
-    )
+    slider_col1, slider_col2 = st.columns(2)
+    with slider_col1:
+        min_halte = st.slider(
+            "Mindestanzahl Halte pro Bahnhof (Filter gegen Rauschen)",
+            min_value=50, max_value=1500, value=200, step=50,
+            help="Gesamtzahl der Zug-Halte an diesem Bahnhof über den ganzen "
+                 "48-Tage-Zeitraum (nicht pro Tag). Bahnhöfe mit weniger Halten "
+                 "werden ausgeblendet, da ihr Mittelwert statistisch unzuverlässig "
+                 "ist. Ab ~500 Halten ist die Schätzung stabil (95%-CI ±11 s).",
+        )
+    with slider_col2:
+        min_delay = st.slider(
+            "Nur Hotspots: Mindest-Ø-Verspätung [s]",
+            min_value=0, max_value=200, value=0, step=10,
+            help="Zeigt nur Bahnhöfe, deren mittlere Ankunftsverspätung mindestens "
+                 "diesen Wert erreicht. 0 = alle anzeigen. Höhere Werte isolieren "
+                 "die Verspätungs-Hotspots (v.a. Grenzbahnhöfe).",
+        )
 
     # Aggregat pro Station (gecacht pro Kantons-Auswahl + Schwellwert)
     @st.cache_data(show_spinner=False)
@@ -262,24 +275,41 @@ with tab_karte:
         agg["mean_delay"] = agg["mean_delay"].round(1)
         return agg
 
-    by_station = aggregate_stations(tuple(selected_cantons), min_halte)
-    st.metric("Anzahl Bahnhöfe (gefiltert)", len(by_station))
+    def apply_hotspot(agg: pd.DataFrame, min_d: int) -> pd.DataFrame:
+        """Billiger Nachfilter auf das (kleine) Aggregat: nur Bahnhöfe mit
+        mittlerer Verspätung >= min_d. min_d == 0 -> keine Filterung."""
+        return agg[agg["mean_delay"] >= min_d] if min_d > 0 else agg
+
+    by_station = apply_hotspot(
+        aggregate_stations(tuple(selected_cantons), min_halte), min_delay)
+
+    kpi_left, kpi_right = st.columns(2)
+    kpi_left.metric("Sichtbare Bahnhöfe", len(by_station))
+    if min_delay > 0:
+        kpi_right.metric("Hotspot-Schwelle", f"≥ {min_delay} s")
 
     # Folium-Karte als STATISCHES HTML rendern (components.html) — viel schneller
     # als st_folium (kein bidirektionaler Roundtrip), gecacht pro Auswahl.
     @st.cache_data(show_spinner=False)
-    def build_map_html(cantons_key: tuple, min_n: int) -> str:
-        agg = aggregate_stations(cantons_key, min_n)
-        if len(agg) == 0:
+    def build_map_html(cantons_key: tuple, min_n: int, min_d: int) -> str:
+        full = aggregate_stations(cantons_key, min_n)
+        if len(full) == 0:
             return ""
         m = folium.Map(location=[46.85, 8.2], zoom_start=8, tiles="cartodbpositron")
 
         # Kontinuierliche Rot-Gradient-Skala (hellrot -> dunkelrot), wie Covid-Projekt.
-        # vmin/vmax robust auf 5./95. Perzentil, damit Ausreisser die Skala nicht waschen.
-        vmin = float(agg["mean_delay"].quantile(0.05))
-        vmax = float(agg["mean_delay"].quantile(0.95))
+        # vmin/vmax robust auf 5./95. Perzentil der VOLLEN Population (vor Hotspot-
+        # Filter), damit die Farben absolute Verspätungsniveaus zeigen und beim
+        # Verschieben des Hotspot-Reglers nicht "zurücksetzen".
+        vmin = float(full["mean_delay"].quantile(0.05))
+        vmax = float(full["mean_delay"].quantile(0.95))
         if vmax <= vmin:
             vmax = vmin + 1
+
+        # Nur die Hotspot-Teilmenge zeichnen (Farbskala bleibt absolut)
+        agg = apply_hotspot(full, min_d)
+        if len(agg) == 0:
+            return ""
         colormap = cm.LinearColormap(
             colors=["#fee0d2", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"],
             vmin=vmin, vmax=vmax,
@@ -304,7 +334,7 @@ with tab_karte:
     # Zug-Loader waehrend des (auf Cache-Miss langsamen) Karten-Builds
     map_ph = st.empty()
     map_ph.markdown(train_loader_html("Karte wird geladen …"), unsafe_allow_html=True)
-    map_html = build_map_html(tuple(selected_cantons), min_halte)
+    map_html = build_map_html(tuple(selected_cantons), min_halte, min_delay)
     map_ph.empty()
     if map_html:
         components.html(map_html, height=550)
