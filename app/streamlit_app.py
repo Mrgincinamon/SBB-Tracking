@@ -395,20 +395,24 @@ with tab_tod:
 # === TAB 3: Pendler-Insight (LLM) ===
 import random
 
-# Allgemeine (städteunabhängige) Beispiel-Fragen
+# Allgemeine (städteunabhängige) Beispiel-Fragen — bewusst über verschiedene
+# Analyse-Blickwinkel gestreut (Tageszeit, Zugtyp, Wetter, Pendeln, Kuriosa),
+# damit die Vorschläge nicht monoton wirken.
 _GENERIC_QUESTIONS = [
-    "Zu welcher Tageszeit sind Züge am pünktlichsten?",
-    "Welcher Zugtyp ist am zuverlässigsten — S-Bahn, IC oder IR?",
-    "Sind Wochenenden wirklich pünktlicher als Werktage?",
-    "Welche Bahnhöfe haben die grössten Verspätungen?",
-    "Lohnt es sich, die Rush-Hour zu meiden?",
-    "Sind internationale Züge unpünktlicher als Schweizer Züge?",
-    "Wie stark beeinflusst Regen die Verspätungen?",
-    "Welcher Wochentag ist am schlimmsten?",
-    "Ist der Abendverkehr schlimmer als der Morgenverkehr?",
-    "Wann ist die schlechteste Zeit zum Reisen?",
-    "Sind Nachtzüge besonders unpünktlich?",
-    "Wie pünktlich sind die Züge am frühen Morgen?",
+    "Wann erwische ich am ehesten einen pünktlichen Zug?",
+    "Wie viele Minuten kostet mich die Rush-Hour wirklich?",
+    "Komme ich mit dem IC oder dem IR zuverlässiger ans Ziel?",
+    "Stimmt es, dass Auslandszüge die Statistik verderben?",
+    "Warum sind ausgerechnet Grenzbahnhöfe so verspätungsanfällig?",
+    "Macht schlechtes Wetter die Züge spürbar langsamer?",
+    "Ich pendle täglich — wann sollte ich am besten losfahren?",
+    "Reise ich am Wochenende wirklich entspannter?",
+    "Was waren die schlimmsten Tage im Datensatz — und warum?",
+    "Ist die S-Bahn im Berufsverkehr verlässlich?",
+    "Welche Stunde des Tages ist die unberechenbarste?",
+    "Hat die SBB ihren Ruf als Pünktlichkeits-Weltmeister verdient?",
+    "Soll ich abends lieber einen früheren Zug nehmen?",
+    "Wie gross ist der Unterschied zwischen bestem und schlechtestem Bahnhof?",
 ]
 
 # Städte für template-generierte Fragen (alle mit Daten im Datensatz)
@@ -418,12 +422,14 @@ _CITIES = [
     "Thun", "Neuchâtel", "Schaffhausen", "Aarau", "Baden", "Wil",
 ]
 
-# Templates mit {c}-Platzhalter für die Stadt
+# Templates mit {c}-Platzhalter für die Stadt — verschiedene Blickwinkel statt
+# vier Varianten derselben "Wie pünktlich ist X?"-Frage. Alle aus den
+# Bahnhof-Mittelwerten im LLM-Kontext beantwortbar.
 _CITY_TEMPLATES = [
-    "Wie pünktlich ist der Bahnhof {c}?",
-    "Ist {c} ein Verspätungs-Hotspot?",
-    "Lohnt sich die Fahrt ab {c} morgens?",
-    "Wie zuverlässig sind die Züge in {c}?",
+    "Wie schlägt sich {c} im Schweizer Vergleich?",
+    "Sollte ich ab {c} einen Zeitpuffer einplanen?",
+    "Ist {c} ein Verspätungs-Hotspot oder eher harmlos?",
+    "Wie zuverlässig komme ich in {c} an?",
 ]
 
 
@@ -470,6 +476,19 @@ def build_llm_context(df: pd.DataFrame, question: str) -> str:
     off_mean = df.loc[~df["is_rush_hour"], "delay_arr_sec"].mean()
     we_mean = df.loc[df["is_weekend"].astype(bool), "delay_arr_sec"].mean()
     wt_mean = df.loc[~df["is_weekend"].astype(bool), "delay_arr_sec"].mean()
+
+    # Wetter-Effekt: Regenstunden vs. trockene Stunden (aus MeteoSchweiz-Join)
+    weather_str = ""
+    if "niederschlag_mm" in df.columns:
+        w = df[df["niederschlag_mm"].notna()]
+        if len(w) > 1000:
+            rain = w.loc[w["niederschlag_mm"] > 0, "delay_arr_sec"].mean()
+            dry = w.loc[w["niederschlag_mm"] == 0, "delay_arr_sec"].mean()
+            weather_str = (
+                f"\n\nWetter (n={len(w):,} Halte mit MeteoSchweiz-Daten):\n"
+                f"  Regenstunden: {rain:.1f}s vs. trockene Stunden: {dry:.1f}s "
+                f"(Effekt klein, vgl. Notebook 03: |r| < 0.06)"
+            )
 
     # Stündliche Verspätung (alle 24 Stunden)
     hourly = df.groupby("hour")["delay_arr_sec"].mean().round(0)
@@ -532,7 +551,7 @@ Mittlere Verspätung pro Zugtyp (aufsteigend):
 {type_str}
 
 Top-5 unpünktlichste Bahnhöfe gesamt:
-{top5_str}{station_block}{worst_days}"""
+{top5_str}{weather_str}{station_block}{worst_days}"""
 
 
 with tab_insight:
