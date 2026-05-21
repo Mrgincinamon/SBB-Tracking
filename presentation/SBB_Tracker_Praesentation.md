@@ -181,9 +181,11 @@ API-Key wird über `.env`-Datei und `python-dotenv` geladen (gitignored).
 **Ergebnis**: **t = 94.97**, **p < 10⁻³⁰⁰** (Welch's t-Test, Heteroskedastizität-tolerant)
 
 Werktag-Züge sind im Mittel **15.5 Sekunden** stärker verspätet als
-Wochenend-Züge. Bei n ≈ 2.7 Millionen Beobachtungen ist der Effekt
-statistisch hochsignifikant. Mann-Whitney-U-Test in Notebook 03 bestätigt das
-verteilungsfrei.
+Wochenend-Züge (95%-CI [15.2, 15.8] s). Bei n ≈ 2.7 Millionen ist der Effekt
+hochsignifikant — aber die **Effektstärke ist klein** (**Cohen's d ≈ 0.12**).
+Mann-Whitney-U bestätigt verteilungsfrei; ein Robustheits-Test auf
+**Tagesmitteln (n=48)** zeigt, dass der Effekt nicht bloss ein Artefakt der
+riesigen Stichprobe ist (siehe Notebook 03).
 
 **Interpretation**: Werktage zeigen erhöhte Verspätung durch höhere
 Zugfrequenz und Rush-Hour-Effekte. Der Median-Verspätung über alle Tage liegt
@@ -193,8 +195,8 @@ bei 28 s, das **95. Perzentil bei 181 s** — d.h. nur ~5 % der Halte
 ### 3.2 H2: Linientyp-Effekt (Einweg-ANOVA)
 
 **One-Way ANOVA über 14 Linientypen**: **F = 8'450.0**, **p < 10⁻³⁰⁰**
-(höchst signifikant). Tukey HSD-Post-hoc-Test in Notebook 03 zeigt,
-welche Paare sich konkret unterscheiden.
+(höchst signifikant), Effektstärke **η² ≈ 0.039** (klein). Tukey HSD-Post-hoc-Test
+in Notebook 03 zeigt, welche Paare sich konkret unterscheiden.
 
 Mittlere Verspätung pro Linientyp (sortiert):
 
@@ -227,15 +229,17 @@ gegen `delay_arr_sec` über n ≈ 2.74 Mio Beobachtungen:
 
 | Variable | Pearson r | Pearson p | Spearman ρ | Spearman p |
 |---|---:|---:|---:|---:|
-| **Niederschlag** (mm) | **+0.0212** | < 10⁻²⁶⁹ | **+0.0586** | < 10⁻³⁰⁰ |
+| **Niederschlag** (mm) | **+0.0218** | < 10⁻²⁸⁶ | **+0.0595** | < 10⁻³⁰⁰ |
 | Sonnenscheindauer (min) | −0.0368 | < 10⁻³⁰⁰ | −0.0525 | < 10⁻³⁰⁰ |
-| Rel. Luftfeuchte (%) | +0.0285 | < 10⁻³⁰⁰ | +0.0516 | < 10⁻³⁰⁰ |
-| Temperatur (°C) | −0.0114 | < 10⁻⁷⁹ | −0.0333 | < 10⁻³⁰⁰ |
-| Windgeschwindigkeit (m/s) | −0.0032 | < 10⁻⁸ | −0.0006 | 0.33 |
+| Rel. Luftfeuchte (%) | +0.0304 | < 10⁻³⁰⁰ | +0.0547 | < 10⁻³⁰⁰ |
+| Temperatur (°C) | −0.0115 | < 10⁻⁸¹ | −0.0334 | < 10⁻³⁰⁰ |
+| Windgeschwindigkeit (m/s) | −0.0012 | 0.04 | +0.0013 | 0.03 |
 
-**Interpretation**: Alle Wetter-Effekte sind durch die enorme Stichprobengrösse
-**statistisch signifikant** (ausser Wind im Spearman) — aber die Effekt-Stärke
-ist mit r ≈ 0.01–0.06 **inhaltlich klein**. Niederschlag und Bewölkung
+**Interpretation**: Niederschlag, Sonne, Feuchte und Temperatur sind durch die
+enorme Stichprobengrösse **hochsignifikant**; nur **Wind** ist mit p ≈ 0.03–0.04
+grenzwertig und überlebt die Bonferroni-Schwelle (α = 0.0125) nicht. Entscheidend:
+Die Effekt-Stärke ist mit r ≈ 0.01–0.06 (95%-CIs in Notebook 03) **inhaltlich
+trivial** — Signifikanz ≠ Relevanz. Niederschlag und Bewölkung
 (antikorreliert mit Sonnenscheindauer) gehen in die erwartete Richtung:
 mehr Regen, weniger Sonne → mehr Verspätung. Spearman-ρ ist durchgängig
 grösser als Pearson-r, was auf einen monoton-aber-nicht-linearen Zusammenhang
@@ -253,21 +257,21 @@ delay_arr_sec ~ C(is_rush_hour) + C(is_weekend) + C(verkehrsmittel_text)
               + niederschlag_mm + temperatur_c
 ```
 
-**Anpassungsgüte**: **R² = 0.0429** (4.29 %), Adj. R² = 0.0429,
-**F = 6'466.9, p < 10⁻³⁰⁰**
+**Anpassungsgüte**: **R² = 0.0430** (4.30 %), Adj. R² = 0.0430,
+**F = 6'470.8, p < 10⁻³⁰⁰**
 
-Wichtigste Koeffizienten (Auswahl, alle mit Standardfehler in Notebook 03):
+Wichtigste Koeffizienten (Auswahl, mit 95%-CI in Notebook 03):
 
 | Variable | Koeffizient (s) | p-Value | Interpretation |
 |---|---:|---:|---|
 | **Rush-Hour** (True) | **+10.4** | < 10⁻³⁰⁰ | Rush-Hour-Verspätung ~10 s |
 | **Wochenende** (True) | **−12.0** | < 10⁻³⁰⁰ | Wochenende ~12 s pünktlicher |
-| **Niederschlag** (pro mm) | **+6.05** | < 10⁻¹⁹⁹ | Pro mm Regen +6.0 s |
-| Temperatur (pro °C) | +0.07 | < 10⁻⁵ | signifikant, aber praktisch vernachlässigbar |
+| **Niederschlag** (pro mm) | **+6.32** | < 10⁻²¹⁴ | Pro mm Regen +6.3 s |
+| Temperatur (pro °C) | +0.08 | < 10⁻⁵ | signifikant, aber praktisch vernachlässigbar |
 | NJ (Nachtzug, vs Referenz) | +357.0 | < 10⁻¹⁴⁶ | Sonderfall: wenige Züge, hohe Streuung |
-| TGV (vs Referenz) | +196.5 | < 10⁻⁴⁸ | Internationaler Import-Effekt |
+| TGV (vs Referenz) | +196.4 | < 10⁻⁴⁸ | Internationaler Import-Effekt |
 | EC (vs Referenz) | +146.8 | < 10⁻²⁹ | dito |
-| S (vs Referenz) | −102.9 | < 10⁻¹⁴ | S-Bahn signifikant pünktlicher |
+| S (vs Referenz) | −103.0 | < 10⁻¹⁴ | S-Bahn signifikant pünktlicher |
 
 **Interpretation**:
 1. Die **kombinierten Faktoren erklären nur ~4.3 % der Verspätungs-Varianz** —
@@ -275,7 +279,7 @@ Wichtigste Koeffizienten (Auswahl, alle mit Standardfehler in Notebook 03):
    idiosynkratische Ereignisse bestimmt sind (Defekte, einzelne Verspätungen,
    Personalengpässe).
 2. Die **drei dominierenden Effekte** sind dennoch konsistent mit der
-   Erwartung: Rush-Hour +10 s, Wochenende −12 s, Niederschlag +6.0 s/mm.
+   Erwartung: Rush-Hour +10 s, Wochenende −12 s, Niederschlag +6.3 s/mm.
 3. Internationale Zugtypen (TGV, EC, NJ) bestätigen den "Import-Effekt".
 
 ### 3.5 LLM-Hypothesen für Krisen-Tage
@@ -313,8 +317,21 @@ Start: `streamlit run app/streamlit_app.py` aus dem Projekt-Root.
   für High-Resolution-Recent entschieden.
 - **Nur SBB**: Andere Anbieter (BLS, RhB, SOB) sind in den Daten enthalten,
   aber wir haben gefiltert. Eine vollständige Schweiz-Analyse wäre möglich.
+- **Nicht-Unabhängigkeit der Beobachtungen** (wichtigste statistische
+  Einschränkung): Die 2.7 Mio Halte sind in Zügen, Bahnhöfen und Betriebstagen
+  geschachtelt (Pseudoreplikation) — die effektive Stichprobe ist kleiner als n,
+  weshalb die Roh-p-Werte zu optimistisch sind. Wir begegnen dem mit (a) einem
+  **Tagesmittel-Robustheitstest** (Effekt überlebt mit n=48 statt 2.7 Mio) und
+  (b) dem konsequenten Berichten von **Effektstärken** statt nur p-Werten. Eine
+  vollständige Lösung wären Mixed-Effects-Modelle (über den Kursrahmen hinaus).
+- **Multiples Testen & grosse Stichprobe**: Bei k=4 Test-Familien liegt die
+  Bonferroni-Schwelle bei α = 0.0125; **alle Tests überstehen sie** (p ≈ 0). Die
+  Signifikanz ist also kein Artefakt multiplen Testens — wohl aber Folge der
+  enormen n. Deshalb sind die **Effektstärken** (Cohen's d ≈ 0.12 = klein,
+  |r| < 0.04 = trivial, η² klein) die eigentlich aussagekräftige Grösse.
 - **Wetterdistanz**: Bahnhof → nächste Wetterstation kann bis ~40 km sein
-  (alpine Stationen). Mikroklima geht verloren.
+  (alpine Stationen). Mikroklima geht verloren. Die Zuordnung erfolgt über einen
+  cos(Breite)-korrigierten KDTree (geografisch konsistente Nächste-Nachbar-Suche).
 - **LLM-Limitationen**: Sonnet 4.6 kann plausibel klingende, aber nicht
   verifizierbare Hypothesen liefern. Wir mindern das durch fixe Taxonomie,
   Temperatur 0.2 und explizite Anweisung "erfinde NICHTS". Die Konfidenz-Skala
@@ -419,7 +436,7 @@ Outlier. Beobachtung: Median knapp über 0, deutlicher Rechts-Skew.
 
 #### 6.4.2 Linientyp-Boxplot (Notebook 03, Top-5)
 
-![Verspätung nach Linien-Typ](screenshots/notebooks/03_analyse_visualisierung_cell17_plot0.png)
+![Verspätung nach Linien-Typ](screenshots/notebooks/03_analyse_visualisierung_cell21_plot0.png)
 
 Boxplot der 5 häufigsten Linientypen. S-Bahn (S) hat den höchsten Median,
 gefolgt von RE; IR und IC sind besser. Streuung in allen Gruppen
@@ -427,7 +444,7 @@ gefolgt von RE; IR und IC sind besser. Streuung in allen Gruppen
 
 #### 6.4.3 Time-of-Day-Heatmap (Notebook 03)
 
-![Mittlere Verspätung nach Wochentag und Stunde](screenshots/notebooks/03_analyse_visualisierung_cell25_plot0.png)
+![Mittlere Verspätung nach Wochentag und Stunde](screenshots/notebooks/03_analyse_visualisierung_cell33_plot0.png)
 
 Heatmap: Dienstag 0–3 Uhr ist auffällig (dunkelste Zellen), Werktag-Abend
 17–22 Uhr durchgehend erhöht, Wochenenden tendenziell pünktlicher.

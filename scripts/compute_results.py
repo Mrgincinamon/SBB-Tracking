@@ -31,7 +31,14 @@ def main() -> int:
     valid = df[df["delay_arr_sec"].notna()].copy()
     n_valid = len(valid)
 
+    # Anzahl Haupttest-Familien für Bonferroni-Korrektur:
+    # (1) t-Test, (2) ANOVA, (3) Korrelations-Familie, (4) OLS
+    N_TESTS = 4
+    ALPHA_BONF = 0.05 / N_TESTS  # = 0.0125
+
     r: dict[str, object] = {}
+    r["alpha_bonferroni"] = ALPHA_BONF
+    r["n_test_families"] = N_TESTS
     r["n_total_events"] = int(len(df))
     r["n_valid_arrival"] = int(n_valid)
     r["mean_delay_sec"] = float(valid["delay_arr_sec"].mean())
@@ -40,19 +47,35 @@ def main() -> int:
     r["pct_classically_delayed"] = float((valid["delay_arr_sec"] > 180).mean() * 100)
     r["pct_early_or_punctual"] = float((valid["delay_arr_sec"] <= 0).mean() * 100)
 
-    # Test 1: Welch's t-test Werktag vs Wochenende
+    # Test 1: Welch's t-test Werktag vs Wochenende (+ Effektstärke + 95%-CI)
     wt = valid.loc[~valid["is_weekend"].astype(bool), "delay_arr_sec"]
     we = valid.loc[valid["is_weekend"].astype(bool), "delay_arr_sec"]
     t_stat, t_p = stats.ttest_ind(wt, we, equal_var=False)
+    n1, n2 = len(wt), len(we)
+    s1, s2 = wt.std(ddof=1), we.std(ddof=1)
+    diff = wt.mean() - we.mean()
+    # Cohen's d (gepoolte SD) — Effektstärke unabhängig von n
+    s_pooled = np.sqrt((s1**2 + s2**2) / 2)
+    cohens_d = diff / s_pooled
+    # 95%-CI der Mittelwertdifferenz (Welch-Satterthwaite-df)
+    se_diff = np.sqrt(s1**2 / n1 + s2**2 / n2)
+    welch_df = (s1**2/n1 + s2**2/n2)**2 / (
+        (s1**2/n1)**2/(n1-1) + (s2**2/n2)**2/(n2-1))
+    tcrit = stats.t.ppf(0.975, welch_df)
     r["test_welch_ttest"] = {
         "name": "Welch's t-Test Werktag vs Wochenende",
         "t_statistic": float(t_stat),
         "p_value": float(t_p),
         "mean_werktag_sec": float(wt.mean()),
         "mean_wochenende_sec": float(we.mean()),
-        "n_werktag": int(len(wt)),
-        "n_wochenende": int(len(we)),
+        "n_werktag": int(n1),
+        "n_wochenende": int(n2),
+        "diff_sec": float(diff),
+        "cohens_d": float(cohens_d),
+        "diff_ci95_low": float(diff - tcrit * se_diff),
+        "diff_ci95_high": float(diff + tcrit * se_diff),
         "significant_at_005": bool(t_p < 0.05),
+        "significant_at_bonferroni": bool(t_p < ALPHA_BONF),
     }
 
     # Test 2: ANOVA Linientyp
@@ -61,15 +84,23 @@ def main() -> int:
     line_names = [name for name, g in valid.groupby("verkehrsmittel_text") if len(g) > 100]
     f_stat, f_p = stats.f_oneway(*line_groups)
     means_by_line = valid.groupby("verkehrsmittel_text")["delay_arr_sec"].agg(["mean", "count"])
+    # Effektstärke eta^2 aus F und Freiheitsgraden: eta^2 = F*df_b / (F*df_b + df_w)
+    df_b = len(line_groups) - 1
+    df_w = int(sum(len(g) for g in line_groups)) - len(line_groups)
+    eta_sq = (f_stat * df_b) / (f_stat * df_b + df_w)
     r["test_anova_linientyp"] = {
         "name": "One-Way ANOVA: Verspaetung nach Linien-Typ",
         "f_statistic": float(f_stat),
         "p_value": float(f_p),
+        "df_between": int(df_b),
+        "df_within": int(df_w),
+        "eta_squared": float(eta_sq),
         "groups": line_names,
         "n_groups": len(line_names),
         "means_per_group": {k: float(v) for k, v in means_by_line["mean"].items()},
         "n_per_group": {k: int(v) for k, v in means_by_line["count"].items()},
         "significant_at_005": bool(f_p < 0.05),
+        "significant_at_bonferroni": bool(f_p < ALPHA_BONF),
     }
 
     # Test 3: Pearson r — Niederschlag vs Verspaetung
@@ -83,12 +114,21 @@ def main() -> int:
             continue
         pr, pp = stats.pearsonr(sub[col], sub["delay_arr_sec"])
         sp, spp = stats.spearmanr(sub[col], sub["delay_arr_sec"])
+        # 95%-CI für Pearson r via Fisher-z-Transformation
+        n = len(sub)
+        z = np.arctanh(pr)
+        se_z = 1.0 / np.sqrt(n - 3)
+        ci_low = float(np.tanh(z - 1.96 * se_z))
+        ci_high = float(np.tanh(z + 1.96 * se_z))
         pearson[col] = {
-            "n": int(len(sub)),
+            "n": int(n),
             "pearson_r": float(pr),
             "pearson_p": float(pp),
+            "pearson_ci95_low": ci_low,
+            "pearson_ci95_high": ci_high,
             "spearman_rho": float(sp),
             "spearman_p": float(spp),
+            "significant_at_bonferroni": bool(pp < ALPHA_BONF),
         }
     r["test_correlation"] = pearson
 
@@ -118,6 +158,7 @@ def main() -> int:
         formula = "delay_arr_sec ~ " + " + ".join(formula_parts)
         try:
             model = smf.ols(formula, data=sub).fit()
+            ci = model.conf_int()  # 95%-CI je Koeffizient (Spalten 0/1)
             r["test_ols"] = {
                 "name": "Multiple OLS-Regression",
                 "formula": formula,
@@ -126,7 +167,10 @@ def main() -> int:
                 "adj_r_squared": float(model.rsquared_adj),
                 "f_statistic": float(model.fvalue),
                 "f_p_value": float(model.f_pvalue),
-                "coefficients": {k: {"value": float(v), "p": float(model.pvalues[k])}
+                "coefficients": {k: {"value": float(v),
+                                     "p": float(model.pvalues[k]),
+                                     "ci95_low": float(ci.loc[k, 0]),
+                                     "ci95_high": float(ci.loc[k, 1])}
                                  for k, v in model.params.items()},
             }
         except Exception as e:

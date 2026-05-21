@@ -170,22 +170,36 @@ WEATHER_STATION_COORDS = {
 }
 
 
+KM_PER_DEG = 111.0  # 1° Breitengrad ≈ 111 km
+
+
 @lru_cache(maxsize=1)
 def _weather_kdtree():
-    """Build (and cache) a scipy KDTree over weather station coords."""
+    """Build (and cache) a scipy KDTree over weather station coords.
+
+    Wichtig: Längengrade werden mit cos(mittlere Breite) skaliert, bevor der
+    KDTree gebaut wird. Sonst wäre die euklidische Distanz in rohen Grad
+    geografisch verzerrt (1° Länge ≈ 111·cos(lat) km, in der Schweiz nur
+    ~76 km statt 111 km). Mit der Skalierung ist die euklidische Distanz auf
+    der projizierten Ebene ≈ proportional zur echten Distanz in km.
+    """
     from scipy.spatial import cKDTree
     abbrs = list(WEATHER_STATION_COORDS.keys())
-    coords = np.array([WEATHER_STATION_COORDS[a] for a in abbrs])
-    return abbrs, cKDTree(coords)
+    lat0 = float(np.mean([c[0] for c in WEATHER_STATION_COORDS.values()]))
+    lon_scale = float(np.cos(np.radians(lat0)))
+    coords = np.array([(lat, lon * lon_scale)
+                       for lat, lon in WEATHER_STATION_COORDS.values()])
+    return abbrs, cKDTree(coords), lon_scale
 
 
 def nearest_weather_station(lat: float, lon: float) -> tuple[str, float]:
-    """Return (station_abbr, distance_km) of the closest weather station."""
-    abbrs, tree = _weather_kdtree()
-    dist, idx = tree.query([lat, lon])
-    # KDTree returns Euclidean in degrees; rough conversion to km
-    # 1 deg lat ≈ 111 km, 1 deg lon ≈ 111 km * cos(lat)
-    return abbrs[int(idx)], float(dist * 111)
+    """Return (station_abbr, distance_km) of the closest weather station.
+
+    Distanz auf der cos(lat)-projizierten Ebene, in km umgerechnet (·111).
+    """
+    abbrs, tree, lon_scale = _weather_kdtree()
+    dist_deg, idx = tree.query([lat, lon * lon_scale])
+    return abbrs[int(idx)], float(dist_deg * KM_PER_DEG)
 
 
 def map_stations_to_weather(stations: pd.DataFrame,
