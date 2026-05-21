@@ -331,7 +331,7 @@ Top-5 unpünktlichste Bahnhöfe gesamt:
 
 
 with tab_insight:
-    st.header("🤖 Pendler-Insight — LLM-Beratung")
+    st.header("🤖 Wie pendelst du am Besten..? Frag mich :)")
 
     if "q_text" not in st.session_state:
         st.session_state.q_text = DEFAULT_Q
