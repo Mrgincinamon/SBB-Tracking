@@ -333,7 +333,10 @@ _TRAIN_SVG = """
 </svg>
 """
 
-TRAIN_LOADER_HTML = f"""
+def train_loader_html(text: str = "deine Anfrage wird ausgewertet") -> str:
+    """SBB-Zug-Loading-Animation. animation-delay negativ -> Zug ist sofort
+    sichtbar (startet mitten im Lauf), kein Warten bis er ins Bild faehrt."""
+    return f"""
 <style>
 @keyframes sbb-train-move {{
   0%   {{ left: -490px; }}      /* Zug (~475px) startet komplett links ausserhalb */
@@ -344,7 +347,6 @@ TRAIN_LOADER_HTML = f"""
   position: relative;
   height: 58px;
   overflow: hidden;
-  /* zwei Schienen + Schwellen */
   border-bottom: 4px solid #9a9a9a;
   background:
     repeating-linear-gradient(90deg,#9a9a9a 0 5px,transparent 5px 24px)
@@ -356,7 +358,8 @@ TRAIN_LOADER_HTML = f"""
   position: absolute;
   bottom: 8px;
   left: -490px;
-  animation: sbb-train-move 6s linear infinite;
+  animation: sbb-train-move 4.5s linear infinite;
+  animation-delay: -1.8s;   /* startet mitten im Lauf -> sofort sichtbar */
   will-change: left;
 }}
 .sbb-loader-text {{
@@ -369,7 +372,7 @@ TRAIN_LOADER_HTML = f"""
 </style>
 <div class="sbb-loader-wrap">
   <div class="sbb-track"><div class="sbb-train">{_TRAIN_SVG}</div></div>
-  <div class="sbb-loader-text">deine Anfrage wird ausgewertet</div>
+  <div class="sbb-loader-text">{text}</div>
 </div>
 """
 
@@ -520,7 +523,7 @@ with tab_insight:
 
         # SBB-Zug-Loading-Animation (CSS läuft browserseitig während des API-Calls)
         loader = st.empty()
-        loader.markdown(TRAIN_LOADER_HTML, unsafe_allow_html=True)
+        loader.markdown(train_loader_html(), unsafe_allow_html=True)
         try:
             msg = client.messages.create(
                 model=MODEL_NAME,
