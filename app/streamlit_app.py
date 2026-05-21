@@ -232,7 +232,7 @@ EXAMPLE_QUESTIONS = [
     "Lohnt es sich, die Rush-Hour zu meiden?",
     "Wie pünktlich ist der Bahnhof Bern?",
 ]
-DEFAULT_Q = EXAMPLE_QUESTIONS[0]
+DEFAULT_Q = ""  # Feld startet leer, Placeholder lädt zum Fragen ein
 
 # Deutsche Stoppwörter, die bei der Bahnhof-Keyword-Suche ignoriert werden
 _STOPWORDS = {
@@ -350,6 +350,7 @@ with tab_insight:
         key="q_text",
         height=80,
         label_visibility="collapsed",
+        placeholder="Frag mich :)",
     )
     st.markdown(
         f"<span style='font-size:0.72em; color:#888;'>Powered by Anthropic "
@@ -363,7 +364,9 @@ with tab_insight:
         generate = True
         st.session_state.auto_generate = False
 
-    if generate:
+    if generate and not insight_q.strip():
+        st.warning("Bitte gib zuerst eine Frage ein oder klick eine Beispiel-Frage an.")
+    elif generate:
         from anthropic import Anthropic
         client = Anthropic()
 
