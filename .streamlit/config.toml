@@ -1,0 +1,9 @@
+# SBB-Tracker Theme — kohärentes Branding im SBB-Stil.
+# primaryColor = offizielles SBB-Rot (#EB0000), genutzt für Buttons, Slider,
+# aktive Tabs, Fokus-Rahmen.
+[theme]
+primaryColor = "#EB0000"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f5f5f5"
+textColor = "#1a1a1a"
+font = "sans serif"

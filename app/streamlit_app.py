@@ -348,7 +348,7 @@ with tab_karte:
              .head(20)[["designationofficial", "cantonabbreviation", "n_halte",
                         "mean_delay", "pct_late"]])
     top20.columns = ["Bahnhof", "Kanton", "Halte", "Mean Delay [s]", "% Verspaetet"]
-    st.dataframe(top20, use_container_width=True, hide_index=True)
+    st.dataframe(top20, width="stretch", hide_index=True)
 
 
 # === TAB 2: Time-of-Day ===
@@ -366,12 +366,12 @@ with tab_tod:
     fig = px.imshow(
         pivot,
         labels=dict(x="Stunde", y="Wochentag", color="Mean Delay [s]"),
-        color_continuous_scale="YlOrRd",
+        color_continuous_scale="Reds",  # gleiche Rot-Familie wie die Karte
         aspect="auto",
         text_auto=".0f",
     )
     fig.update_layout(height=400, margin=dict(l=40, r=20, t=30, b=40))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Drill-Down: Wochentag + Stunde auswählen → Kennzahlen passen sich an
     st.markdown("#### Kennzahlen — wähle Tag und/oder Stunde für Details")
@@ -614,7 +614,7 @@ with tab_insight:
         placeholder="Frag mich :)",
     )
     st.markdown(
-        f"<span style='font-size:0.72em; color:#888;'>Powered by Anthropic "
+        f"<span style='font-size:0.72em; color:#595959;'>Powered by Anthropic "
         f"{MODEL_NAME} · Antwort basiert ausschliesslich auf den Projektdaten</span>",
         unsafe_allow_html=True,
     )
@@ -684,7 +684,7 @@ with tab_insight:
                                        "llm_ursache", "llm_konfidenz", "llm_begruendung"]]
         reasons.columns = ["Datum", "Tag", "% Verspaetet", "LLM-Ursache",
                            "Konfidenz", "Begruendung"]
-        st.dataframe(reasons, use_container_width=True, hide_index=True)
+        st.dataframe(reasons, width="stretch", hide_index=True)
 
 
 # === TAB 4: Über ===
