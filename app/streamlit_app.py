@@ -18,12 +18,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import utils
 
+import branca.colormap as cm
 import folium
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
-from streamlit_folium import st_folium
 
 # ---------------------------------------------------------------------------
 # Konfiguration
@@ -42,7 +43,33 @@ MODEL_NAME = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 # Streamlit-Standard "Running"-Icon (Schwimmer) oben rechts ausblenden —
 # wir nutzen stattdessen die eigene SBB-Zug-Animation als Loading-Indikator.
 st.markdown(
-    "<style>[data-testid='stStatusWidget']{display:none;}</style>",
+    """
+    <style>
+    /* Standard-Streamlit-"Running"-Schwimmer oben rechts ausblenden */
+    [data-testid='stStatusWidget'] { display: none; }
+
+    /* Pills (Beispiel-Fragen) im SBB-Stil: luftig, abgerundet, rot */
+    [data-testid='stButtonGroup'] {
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+    }
+    [data-testid='stBaseButton-pills'] {
+        border-radius: 18px !important;
+        border: 1.5px solid #EB0000 !important;
+        color: #EB0000 !important;
+        background: #ffffff !important;
+        padding: 6px 16px !important;
+        margin: 4px 4px !important;
+        font-weight: 500 !important;
+        transition: all 0.15s ease !important;
+    }
+    [data-testid='stBaseButton-pills']:hover {
+        background: #EB0000 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(235,0,0,0.25) !important;
+    }
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
@@ -119,11 +146,18 @@ selected_cantons = st.sidebar.multiselect(
     "Kantone (leer = alle)", options=cantons, default=[]
 )
 
-# Daten filtern
-df = df_delays.copy()
-if selected_cantons:
-    canton_stations = load_stations().query("cantonabbreviation in @selected_cantons")["number"].tolist()
-    df = df.loc[df["bpuic"].isin(canton_stations)]
+# Daten filtern (gecacht pro Kantons-Auswahl -> schnelle Reruns)
+@st.cache_data(show_spinner=False)
+def get_filtered_df(cantons_key: tuple) -> pd.DataFrame:
+    d = load_delays()
+    if cantons_key:
+        nums = load_stations().query(
+            "cantonabbreviation in @cantons_key")["number"].tolist()
+        d = d.loc[d["bpuic"].isin(nums)]
+    return d
+
+
+df = get_filtered_df(tuple(selected_cantons))
 
 # ---------------------------------------------------------------------------
 # Tabs
@@ -138,58 +172,86 @@ tab_karte, tab_tod, tab_insight, tab_about = st.tabs([
 with tab_karte:
     st.header("Verspätungs-Hotspots auf der Schweizer Karte")
     st.caption("Pro Bahnhof: durchschnittliche Ankunftsverspätung (Sekunden). "
-               "Rot = hohe Verspätung, Grün = pünktlich.")
+               "Farbskala von hellrot (pünktlich) bis dunkelrot (stark verspätet).")
 
-    min_halte = st.slider("Mindestanzahl Halte pro Bahnhof (Filter Rauschen)",
-                          min_value=50, max_value=2000, value=200, step=50)
-
-    # Aggregat pro Station
-    stations = load_stations()
-    by_station = (df.groupby("bpuic")
-                  .agg(n_halte=("delay_arr_sec", "size"),
-                       mean_delay=("delay_arr_sec", "mean"),
-                       pct_late=("is_late_3min", "mean"))
-                  .query("n_halte >= @min_halte")
-                  .reset_index())
-    by_station = by_station.merge(
-        stations[["number", "designationofficial", "lat", "lon", "cantonabbreviation"]],
-        left_on="bpuic", right_on="number", how="inner"
+    min_halte = st.slider(
+        "Mindestanzahl Halte pro Bahnhof (Filter gegen Rauschen)",
+        min_value=50, max_value=2000, value=200, step=50,
+        help="Gesamtzahl der Zug-Halte an diesem Bahnhof über den ganzen "
+             "48-Tage-Zeitraum (nicht pro Tag). Bahnhöfe mit weniger Halten "
+             "werden ausgeblendet, da ihr Mittelwert statistisch unzuverlässig ist.",
     )
-    by_station["pct_late"] = (by_station["pct_late"] * 100).round(1)
-    by_station["mean_delay"] = by_station["mean_delay"].round(1)
 
+    # Aggregat pro Station (gecacht pro Kantons-Auswahl + Schwellwert)
+    @st.cache_data(show_spinner=False)
+    def aggregate_stations(cantons_key: tuple, min_n: int) -> pd.DataFrame:
+        d = get_filtered_df(cantons_key)
+        agg = (d.groupby("bpuic")
+               .agg(n_halte=("delay_arr_sec", "size"),
+                    mean_delay=("delay_arr_sec", "mean"),
+                    pct_late=("is_late_3min", "mean"))
+               .query("n_halte >= @min_n")
+               .reset_index())
+        agg = agg.merge(
+            load_stations()[["number", "designationofficial", "lat", "lon",
+                             "cantonabbreviation"]],
+            left_on="bpuic", right_on="number", how="inner")
+        agg["pct_late"] = (agg["pct_late"] * 100).round(1)
+        agg["mean_delay"] = agg["mean_delay"].round(1)
+        return agg
+
+    by_station = aggregate_stations(tuple(selected_cantons), min_halte)
     st.metric("Anzahl Bahnhöfe (gefiltert)", len(by_station))
 
-    # Folium-Karte
-    if len(by_station) > 0:
+    # Folium-Karte als STATISCHES HTML rendern (components.html) — viel schneller
+    # als st_folium (kein bidirektionaler Roundtrip), gecacht pro Auswahl.
+    @st.cache_data(show_spinner=False)
+    def build_map_html(cantons_key: tuple, min_n: int) -> str:
+        agg = aggregate_stations(cantons_key, min_n)
+        if len(agg) == 0:
+            return ""
         m = folium.Map(location=[46.85, 8.2], zoom_start=8, tiles="cartodbpositron")
 
-        # Farbskala definieren
-        def delay_color(sec):
-            if sec < 20: return "#1a9850"
-            elif sec < 40: return "#66bd63"
-            elif sec < 60: return "#fdae61"
-            elif sec < 90: return "#f46d43"
-            else: return "#d73027"
+        # Kontinuierliche Rot-Gradient-Skala (hellrot -> dunkelrot), wie Covid-Projekt.
+        # vmin/vmax robust auf 5./95. Perzentil, damit Ausreisser die Skala nicht waschen.
+        vmin = float(agg["mean_delay"].quantile(0.05))
+        vmax = float(agg["mean_delay"].quantile(0.95))
+        if vmax <= vmin:
+            vmax = vmin + 1
+        colormap = cm.LinearColormap(
+            colors=["#fee0d2", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"],
+            vmin=vmin, vmax=vmax,
+            caption="Mittlere Ankunftsverspätung [s]")
 
-        for _, r in by_station.iterrows():
+        for _, r in agg.iterrows():
             folium.CircleMarker(
                 location=[r["lat"], r["lon"]],
-                radius=4 + min(r["n_halte"] / 500, 10),
-                color=delay_color(r["mean_delay"]),
-                fill=True,
-                fill_opacity=0.7,
+                radius=4 + min(r["n_halte"] / 500, 9),
+                color="#555555", weight=0.6,
+                fill=True, fill_color=colormap(r["mean_delay"]), fill_opacity=0.85,
                 popup=folium.Popup(
                     f"<b>{r['designationofficial']}</b> ({r['cantonabbreviation']})<br>"
                     f"Mean Delay: {r['mean_delay']} s<br>"
                     f"Klassisch verspätet: {r['pct_late']}%<br>"
                     f"Halte (Stichprobe): {r['n_halte']:,}",
-                    max_width=300
-                ),
+                    max_width=300),
             ).add_to(m)
-        st_folium(m, width=None, height=550, returned_objects=[])
+        colormap.add_to(m)  # Legende
+        return m.get_root().render()
 
-    st.subheader("Top-20 Bahnhöfe nach mittlerer Verspätung")
+    # Zug-Loader waehrend des (auf Cache-Miss langsamen) Karten-Builds
+    map_ph = st.empty()
+    map_ph.markdown(train_loader_html("Karte wird geladen …"), unsafe_allow_html=True)
+    map_html = build_map_html(tuple(selected_cantons), min_halte)
+    map_ph.empty()
+    if map_html:
+        components.html(map_html, height=550)
+    else:
+        st.info("Keine Bahnhöfe für diese Filter-Einstellung.")
+
+    st.subheader(f"Top-20 Bahnhöfe nach mittlerer Verspätung "
+                 f"(von {len(by_station)} gefilterten Bahnhöfen)")
+    st.caption("Passt sich automatisch dem Regler oben an.")
     top20 = (by_station.sort_values("mean_delay", ascending=False)
              .head(20)[["designationofficial", "cantonabbreviation", "n_halte",
                         "mean_delay", "pct_late"]])
@@ -507,8 +569,13 @@ with tab_insight:
         unsafe_allow_html=True,
     )
 
-    # Generieren wenn Button geklickt ODER eine Beispiel-Pill gewählt wurde
-    generate = st.button("Antwort generieren", type="primary")
+    # Button in Platzhalter -> kann waehrend Loading durch die Zug-Animation
+    # ersetzt werden (Button "verschwindet" waehrend der Generierung).
+    if "gen_key" not in st.session_state:
+        st.session_state.gen_key = 0
+    action = st.empty()
+    generate = action.button("Antwort generieren", type="primary",
+                             key=f"gen_btn_{st.session_state.gen_key}")
     if st.session_state.get("auto_generate"):
         generate = True
         st.session_state.auto_generate = False
@@ -521,9 +588,8 @@ with tab_insight:
 
         context = build_llm_context(df, insight_q)
 
-        # SBB-Zug-Loading-Animation (CSS läuft browserseitig während des API-Calls)
-        loader = st.empty()
-        loader.markdown(train_loader_html(), unsafe_allow_html=True)
+        # Button durch SBB-Zug-Animation ersetzen (Button weg waehrend Loading)
+        action.markdown(train_loader_html(), unsafe_allow_html=True)
         try:
             msg = client.messages.create(
                 model=MODEL_NAME,
@@ -547,7 +613,12 @@ with tab_insight:
             cost = (msg.usage.input_tokens / 1e6 * 3.0
                     + msg.usage.output_tokens / 1e6 * 15.0)
         finally:
-            loader.empty()  # Animation entfernen sobald Antwort da ist
+            action.empty()  # Animation entfernen sobald Antwort da ist
+
+        # Button wieder einblenden (neuer key, da alter in diesem Run verbraucht)
+        st.session_state.gen_key += 1
+        action.button("Antwort generieren", type="primary",
+                      key=f"gen_btn_{st.session_state.gen_key}")
 
         st.success(answer)
         st.caption(f"Tokens: {msg.usage.input_tokens} input / {msg.usage.output_tokens} output  "
