@@ -379,8 +379,6 @@ with tab_karte:
 # === TAB 2: Time-of-Day ===
 with tab_tod:
     st.header("Verspätung nach Tageszeit und Wochentag")
-    st.caption("Wann fährt man am sichersten? Heatmap zeigt mittlere Verspätung "
-               "in Sekunden.")
 
     pivot = (df.groupby(["weekday", "hour"])["delay_arr_sec"]
              .mean()
@@ -633,11 +631,12 @@ with tab_insight:
         st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
 
     st.pills(
-        "💡 Was möchtest du über die Verspätungen der SBB wissen?",
+        "Beispiel-Fragen",
         st.session_state.pill_choices,
         selection_mode="single",
         key="example_pills",
         on_change=_apply_example,
+        label_visibility="collapsed",
     )
     if st.button("🎲 Andere Fragen", key="shuffle_pills"):
         st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
@@ -698,8 +697,6 @@ with tab_insight:
                 }],
             )
             answer = msg.content[0].text
-            cost = (msg.usage.input_tokens / 1e6 * 3.0
-                    + msg.usage.output_tokens / 1e6 * 15.0)
         finally:
             action.empty()  # Animation entfernen sobald Antwort da ist
 
@@ -709,8 +706,6 @@ with tab_insight:
                       key=f"gen_btn_{st.session_state.gen_key}")
 
         st.success(answer)
-        st.caption(f"Tokens: {msg.usage.input_tokens} input / {msg.usage.output_tokens} output  "
-                   f"· Kosten: ${cost:.4f}")
 
         with st.expander("🔍 Welche Daten hat Claude gesehen? (Transparenz)"):
             st.code(context, language="text")
