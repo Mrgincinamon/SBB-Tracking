@@ -382,7 +382,7 @@ diese Erkenntnisse für einzelne Pendler-Strecken konkret abfragbar.
 
 | # | Kriterium | Erfüllung |
 |---|---|---|
-| 1 | Creativity (nicht im Kurs behandelt) | ✅ statsmodels OLS-Regression, **Tukey HSD Post-hoc-Test**, KDTree für Spatial-Join, LLM-Pendler-Insight, programmatic Notebook-Build via nbclient, **Dockerfile für Reproduzierbarkeit**, **pytest-Test-Suite (23 Tests)** |
+| 1 | Creativity (nicht im Kurs behandelt) | ✅ OLS-Regression + Diagnostik (Breusch-Pagan, VIF), **Tukey HSD Post-hoc**, Effektstärken + Konfidenzintervalle, Tagesmittel-Robustheits-Check, KDTree-Spatial-Join (cos-korrigiert), `st.fragment`-Performance, programmatischer Notebook-Build (nbclient), **Dockerfile**, **pytest-Suite (27 Tests)** |
 | 2 | Web scraper / Web API | ✅ `download_istdaten.py` (CKAN-HTML-Scraping mit Regex), `download_stations.py` (REST-API), `download_weather.py` (HTTP) |
 | 3 | Database (SQLite) + SQL queries | ✅ Notebook 01: 3 Tabellen, 5 Beispiel-Queries (SELECT, WHERE, GROUP BY, JOIN, ORDER BY, LIMIT) |
 | 4 | LLM-Nutzung | ✅ Notebook 04 (Krisen-Tag-Klassifikation) + Webapp (Pendler-Insight Live-Q&A) mit Anthropic Claude Sonnet 4.6 |
@@ -415,7 +415,7 @@ project/
 │   ├── raw/                            Roh-Downloads (gitignored, lokal ~720 MB)
 │   └── processed/                      DB + delays_prepared.parquet (gitignored)
 ├── tests/
-│   └── test_utils.py                   ✅ 23 pytest-Tests fuer utils.py
+│   └── test_utils.py                   ✅ 27 pytest-Tests fuer utils.py
 ├── Dockerfile                          ✅ Reproduzierbarer Container fuer die Webapp
 ├── .dockerignore
 └── presentation/
@@ -454,14 +454,16 @@ Heatmap: Dienstag 0–3 Uhr ist auffällig (dunkelste Zellen), Werktag-Abend
 ![Webapp Karte](screenshots/webapp_01_karte.png)
 
 Folium-Karte mit 569 Bahnhöfen nach Filterung (mindestens 200 Halte).
-Farbskala grün → rot codiert die mittlere Ankunftsverspätung.
+Farbskala hellrot → dunkelrot codiert die mittlere Ankunftsverspätung; der
+Hotspot-Regler blendet gezielt die verspätungsanfälligsten Bahnhöfe ein.
 
 #### 6.4.5 Streamlit-Webapp: Time-of-Day
 
 ![Webapp Time-of-Day](screenshots/webapp_02_time_of_day.png)
 
-Interaktive Plotly-Heatmap mit Annotationen pro Zelle. Im Filter-Panel
-können Datums- und Kantons-Filter angewendet werden.
+Interaktive Plotly-Heatmap (Stunde × Wochentag) mit Annotationen pro Zelle.
+Per Drilldown lassen sich Tag und/oder Stunde wählen; die Kennzahlen darunter
+passen sich an.
 
 #### 6.4.6 Streamlit-Webapp: Pendler-Insight (LLM)
 
@@ -488,6 +490,119 @@ Live-Q&A-Interface mit Claude Sonnet 4.6. Im Vorab geladene Tabelle zeigt die
 Auffällig: Grenzbahnhöfe (Buchs SG, St. Margrethen SG zu Vorarlberg/Liechtenstein,
 Basel St. Johann zur DB, Stabio/Paradiso zum TPL Tessin) dominieren — der
 "Import-Effekt" aus dem internationalen Verkehr ist auch geografisch sichtbar.
+
+### 6.5 Detaillierte Code-Nachweise pro Kriterium
+
+Kurzbelege mit Datei und Codeausschnitt. Vollständiger Code im GitHub-Repo.
+
+**Min 1 — Sammlung realer Daten** (drei offene Quellen)
+```python
+# scripts/download_istdaten.py
+DATASET_PAGE = "https://data.opentransportdata.swiss/dataset/istdaten"
+r = requests.get(DATASET_PAGE, timeout=30, headers={"User-Agent": USER_AGENT})
+# + scripts/download_stations.py (data.sbb.ch) + scripts/download_weather.py (MeteoSchweiz)
+```
+
+**Min 2 — Datenaufbereitung: Regex + String→Zahl**
+```python
+# scripts/download_istdaten.py — Regex extrahiert das Datum aus CKAN-Download-Links
+RES_RE = re.compile(r"/dataset/[0-9a-f-]+/resource/[0-9a-f-]+/download/(\d{4}-\d{2}-\d{2})_istdaten\.csv")
+sub[c] = pd.to_datetime(sub[c], errors="coerce", dayfirst=True)   # String → datetime
+# scripts/download_stations.py
+df_train["lat"] = coords[0].str.strip().astype(float)             # String → float
+```
+
+**Min 3 — Python-Built-ins (dict / list / set / tuple) + DataFrames**
+```python
+# app/utils.py
+WEATHER_STATION_COORDS = {"SMA": (47.3784, 8.5660), ...}   # dict mit tuple-Werten
+DELAY_BUCKETS = [(-np.inf, -30, "frueh_30+s"), ...]        # list of tuples
+# scripts/compute_results.py
+if {"delay_arr_sec", "is_rush_hour", "is_weekend"}.issubset(set(avail)):   # set
+# pandas DataFrames durchgehend (pd.read_sql, groupby, merge ...)
+```
+
+**Min 4 — Conditionals, Loops, Loop-Control**
+```python
+# scripts/download_istdaten.py
+for d in wanted:                       # Loop über alle Tage
+    if pq_path.exists():
+        continue                       # Loop-Control (überspringt bereits geladene Tage)
+    if fname not in resources:
+        continue
+```
+
+**Min 5 — Prozedural (+ OOP)**
+```python
+# app/utils.py — prozedurale Funktion mit Loop + Conditional
+def classify_delay(seconds: float) -> str:
+    for low, high, label in DELAY_BUCKETS:
+        if low <= seconds < high:
+            return label
+# tests/test_utils.py — OOP: Testklassen mit Methoden
+class TestClassifyDelay:
+    def test_punktlich(self): assert utils.classify_delay(0) == "puenktlich_unter_1min"
+```
+
+**Min 6 — Tabellen + Visualisierungen**: 7 Plots in Notebook 03 (Histogramm, Boxplots,
+Streudiagramm mit Regressionsgerade, Heatmap, Residuenplot) + Tabellen (`pd.describe`,
+`st.dataframe`). Siehe 6.4.
+
+**Min 7 — Statistik mit p-Wert** (alle zusätzlich mit Effektstärke)
+```python
+# scripts/compute_results.py
+t_stat, t_p   = stats.ttest_ind(wt, we, equal_var=False)        # Welch t-Test
+f_stat, f_p   = stats.f_oneway(*line_groups)                    # ANOVA
+pr, pp        = stats.pearsonr(sub[col], sub["delay_arr_sec"])  # Korrelation
+model = smf.ols(formula, data=sub).fit()                        # OLS (p je Koeffizient)
+```
+
+**Min 8 — Abgabe auf Moodle**: ZIP `projectwork_SP_FS2026_group_XX.zip` (PDF + Video).
+
+**Bonus 1 — Kreativität** (über den Kursstoff hinaus): OLS-Regression inkl. Diagnostik
+(Breusch-Pagan, VIF, Residuenplot), Tukey-HSD-Post-hoc, Effektstärken (Cohen's d, η²) +
+Konfidenzintervalle, Tagesmittel-Robustheits-Check gegen Pseudoreplikation,
+KDTree-Spatial-Join (cos-korrigiert), `st.fragment`-Performance-Optimierung,
+programmatischer Notebook-Build (nbclient), pytest (27 Tests), Dockerfile.
+
+**Bonus 2 — Web-Scraper / Web-API**
+```python
+# scripts/download_istdaten.py — HTML-Scraping der CKAN-Seite (API ist 403-gesperrt)
+def get_resource_map() -> dict[str, str]:
+    r = requests.get(DATASET_PAGE, ...); html = r.text
+    for m in RES_RE.finditer(html): out[fname] = BASE_URL + m.group(0)
+```
+
+**Bonus 3 — SQLite-Datenbank + SQL-Queries** (3 Tabellen, 5 Beispiel-Queries)
+```python
+# scripts/build_notebook_01.py
+df_delays.to_sql("delays", conn, if_exists="replace", index=False)
+conn.execute("CREATE INDEX IF NOT EXISTS idx_delays_bpuic ON delays(bpuic)")
+```
+```sql
+-- Beispiel-Query: mittlere Verspätung pro Kanton (JOIN + GROUP BY)
+SELECT s.cantonabbreviation AS kanton, ROUND(AVG(d.delay_arr_sec), 1) AS avg_delay
+  FROM delays d JOIN stations s ON d.bpuic = s.number
+ WHERE d.an_prognose_status = 'REAL' AND d.delay_arr_sec IS NOT NULL
+ GROUP BY kanton ORDER BY avg_delay DESC
+```
+
+**Bonus 4 — LLM (Anthropic Claude)**
+```python
+# scripts/build_notebook_04.py (Krisen-Tag-Klassifikation) + app/streamlit_app.py (Live-Q&A)
+msg = client.messages.create(model=MODEL_NAME, max_tokens=600, temperature=0.3,
+        system="... antworte AUSSCHLIESSLICH aus den gelieferten Daten, erfinde nichts ...",
+        messages=[{"role": "user", "content": f"Frage: {q}\n\n{context}"}])
+```
+
+**Bonus 5 — Web-Applikation (Streamlit, 4 Tabs)**
+```python
+# app/streamlit_app.py
+tab_karte, tab_tod, tab_insight, tab_about = st.tabs(
+    ["Karte", "Tageszeit", "Pendler-Insight", "Über"])
+```
+
+**Bonus 6 — Öffentliches GitHub-Repo**: https://github.com/Mrgincinamon/SBB-Tracking (MIT-Lizenz).
 
 ---
 
