@@ -224,13 +224,129 @@ with tab_tod:
 
 
 # === TAB 3: Pendler-Insight (LLM) ===
+EXAMPLE_QUESTIONS = [
+    "Zu welcher Tageszeit sind Züge am pünktlichsten?",
+    "Welcher Zugtyp ist am zuverlässigsten — S-Bahn, IC oder IR?",
+    "Sind Wochenenden wirklich pünktlicher als Werktage?",
+    "Welche Bahnhöfe haben die grössten Verspätungen?",
+    "Lohnt es sich, die Rush-Hour zu meiden?",
+    "Wie pünktlich ist der Bahnhof Bern?",
+]
+DEFAULT_Q = EXAMPLE_QUESTIONS[0]
+
+# Deutsche Stoppwörter, die bei der Bahnhof-Keyword-Suche ignoriert werden
+_STOPWORDS = {
+    "wie", "welche", "welcher", "welches", "sind", "wirklich", "haben", "fahren",
+    "lohnt", "vermeiden", "meiden", "zwischen", "morgens", "abends", "mittags",
+    "nachts", "puenktlich", "pünktlich", "zuverlaessig", "zuverlässig", "tageszeit",
+    "zugtyp", "bahn", "bahnhof", "bahnhoefe", "bahnhöfe", "groessten", "grössten",
+    "verspaetung", "verspätung", "verspaetungen", "verspätungen", "wochenende",
+    "wochenenden", "werktage", "werktag", "rush", "hour", "zuege", "züge", "zug",
+    "der", "die", "das", "und", "oder", "als", "wenn", "denn", "auch", "noch",
+}
+
+
+def _apply_example():
+    picked = st.session_state.get("example_pills")
+    if picked:
+        st.session_state.q_text = picked
+
+
+def build_llm_context(df: pd.DataFrame, question: str) -> str:
+    """Reichhaltiger Datenkontext: gesamt + stündlich + pro Zugtyp + Frage-relevante Bahnhöfe."""
+    import re
+
+    n_total = len(df)
+    mean_delay = df["delay_arr_sec"].mean()
+    pct_late = df["is_late_3min"].mean() * 100
+    rush_mean = df.loc[df["is_rush_hour"], "delay_arr_sec"].mean()
+    off_mean = df.loc[~df["is_rush_hour"], "delay_arr_sec"].mean()
+    we_mean = df.loc[df["is_weekend"].astype(bool), "delay_arr_sec"].mean()
+    wt_mean = df.loc[~df["is_weekend"].astype(bool), "delay_arr_sec"].mean()
+
+    # Stündliche Verspätung (alle 24 Stunden)
+    hourly = df.groupby("hour")["delay_arr_sec"].mean().round(0)
+    hourly_str = ", ".join(f"{int(h)}h={int(v)}s" for h, v in hourly.items())
+
+    # Pro Verkehrsmittel-Typ (sortiert, nur mit genug Daten)
+    by_type = (df.groupby("verkehrsmittel_text")["delay_arr_sec"]
+               .agg(["mean", "count"]).query("count >= 100")
+               .sort_values("mean").round(1))
+    type_str = "\n".join(
+        f"  {typ}: {row['mean']:.1f}s (n={int(row['count']):,})"
+        for typ, row in by_type.iterrows()
+    )
+
+    # Top-5 schlimmste Bahnhöfe gesamt
+    top5_late = (df.groupby("haltestellen_name")["delay_arr_sec"]
+                 .agg(["mean", "count"]).query("count >= 500")
+                 .sort_values("mean", ascending=False).head(5).round(1))
+    top5_str = "\n".join(
+        f"  {name}: {row['mean']:.1f}s (n={int(row['count']):,})"
+        for name, row in top5_late.iterrows()
+    )
+
+    # Frage-relevante Bahnhöfe via Keyword-Match
+    keywords = [w for w in re.findall(r"[a-zäöüA-ZÄÖÜ]{4,}", question.lower())
+                if w not in _STOPWORDS]
+    station_block = ""
+    if keywords:
+        pattern = "|".join(re.escape(k) for k in keywords)
+        matched = df[df["haltestellen_name"].str.lower()
+                     .str.contains(pattern, na=False, regex=True)]
+        if len(matched) > 0:
+            matched_agg = (matched.groupby("haltestellen_name")["delay_arr_sec"]
+                           .agg(["mean", "count"]).query("count >= 30")
+                           .sort_values("count", ascending=False).head(8).round(1))
+            if len(matched_agg) > 0:
+                station_block = "\n\nZur Frage passende Bahnhöfe (Keyword-Match):\n" + "\n".join(
+                    f"  {name}: {row['mean']:.1f}s (n={int(row['count']):,})"
+                    for name, row in matched_agg.iterrows()
+                )
+
+    llm_reasons = load_llm_reasons()
+    worst_days = ""
+    if not llm_reasons.empty:
+        worst_days = "\n\nTop-5 Krisen-Tage (LLM-Hypothese):\n" + llm_reasons[
+            ["datum", "wochentag", "pct_late_3min", "llm_ursache"]
+        ].head(5).to_string(index=False)
+
+    return f"""Datenbasis SBB-Verspätungen {df['betriebstag'].min()} bis {df['betriebstag'].max()} ({df['betriebstag'].nunique()} Tage):
+- {n_total:,} Halte (Zug + SBB-only, Status REAL)
+- Mittlere Ankunftsverspätung gesamt: {mean_delay:.1f}s
+- Anteil >3 Min verspätet: {pct_late:.2f}%
+- Werktag {wt_mean:.1f}s vs Wochenende {we_mean:.1f}s
+- Rush-Hour {rush_mean:.1f}s vs Off-Peak {off_mean:.1f}s
+
+Mittlere Verspätung pro Stunde (0-23h):
+  {hourly_str}
+
+Mittlere Verspätung pro Zugtyp (aufsteigend):
+{type_str}
+
+Top-5 unpünktlichste Bahnhöfe gesamt:
+{top5_str}{station_block}{worst_days}"""
+
+
 with tab_insight:
     st.header("🤖 Pendler-Insight — LLM-Beratung")
-    st.caption(f"Powered by Anthropic {MODEL_NAME}")
+    st.caption(f"Powered by Anthropic {MODEL_NAME}  ·  Antwort basiert ausschliesslich "
+               "auf den Projektdaten")
+
+    if "q_text" not in st.session_state:
+        st.session_state.q_text = DEFAULT_Q
+
+    st.pills(
+        "💡 Beispiel-Fragen (Klick übernimmt in das Eingabefeld):",
+        EXAMPLE_QUESTIONS,
+        selection_mode="single",
+        key="example_pills",
+        on_change=_apply_example,
+    )
 
     insight_q = st.text_area(
-        "Stell deine Frage zu einer Strecke oder Tageszeit:",
-        value="Wie zuverlaessig ist die S-Bahn Zuerich morgens zwischen 7 und 9 Uhr?",
+        "Deine Frage zu Strecke, Zugtyp oder Tageszeit:",
+        key="q_text",
         height=80,
     )
 
@@ -238,48 +354,21 @@ with tab_insight:
         from anthropic import Anthropic
         client = Anthropic()
 
-        # Kontext aus den Daten erstellen
-        n_total = len(df)
-        mean_delay = df["delay_arr_sec"].mean()
-        pct_late = df["is_late_3min"].mean() * 100
-        rush_mean = df.loc[df["is_rush_hour"], "delay_arr_sec"].mean()
-        off_mean = df.loc[~df["is_rush_hour"], "delay_arr_sec"].mean()
+        context = build_llm_context(df, insight_q)
 
-        top5_late = (df.groupby("haltestellen_name")["delay_arr_sec"]
-                     .agg(["mean", "count"])
-                     .query("count >= 500")
-                     .sort_values("mean", ascending=False)
-                     .head(5))
-
-        llm_reasons = load_llm_reasons()
-        worst_days_summary = ""
-        if not llm_reasons.empty:
-            worst_days_summary = llm_reasons[["datum", "wochentag",
-                                              "pct_late_3min", "llm_ursache"]].head(5).to_string(index=False)
-
-        context = f"""Datenbasis SBB-Verspaetungen vom {df['betriebstag'].min()} bis {df['betriebstag'].max()}:
-- {n_total:,} Verspaetungs-Events (Zug + SBB-only, Status REAL)
-- Mean Ankunftsverspaetung: {mean_delay:.1f} s
-- Anteil klassisch verspaetet (>3 Min): {pct_late:.2f}%
-- Rush-Hour Mean Delay: {rush_mean:.1f} s
-- Off-Peak Mean Delay: {off_mean:.1f} s
-
-Top-5 Bahnhoefe mit hoechster mittlerer Verspaetung:
-{top5_late.to_string()}
-
-Top-5 schlimmste Tage mit LLM-hypothetisierter Ursache:
-{worst_days_summary if worst_days_summary else "(keine LLM-Analyse vorhanden)"}"""
-
-        with st.spinner("Claude denkt nach..."):
+        with st.spinner("Claude analysiert die Daten..."):
             msg = client.messages.create(
                 model=MODEL_NAME,
                 max_tokens=600,
                 temperature=0.3,
                 system=(
-                    "Du bist ein freundlicher Pendler-Berater fuer den oeffentlichen Verkehr in der Schweiz. "
-                    "Du antwortest immer in deutscher Sprache, kompakt (max 4 Saetze) und basiert AUSSCHLIESSLICH "
-                    "auf den unten gelieferten statistischen Daten. Wenn die Daten die Frage nicht beantworten "
-                    "koennen, sag das ehrlich. Du erfindest KEINE Zahlen oder Linien."
+                    "Du bist ein freundlicher Pendler-Berater für den öffentlichen Verkehr "
+                    "in der Schweiz. Du antwortest immer auf Deutsch, kompakt (max 4 Sätze) "
+                    "und stützt dich AUSSCHLIESSLICH auf die unten gelieferten statistischen "
+                    "Daten. Nenne konkrete Zahlen aus den Daten. Wenn die Daten die Frage nicht "
+                    "exakt beantworten (z.B. eine spezifische Linie fehlt), sag ehrlich was du "
+                    "aus den vorhandenen Daten ableiten kannst und was nicht. Du erfindest NIEMALS "
+                    "Zahlen, Linien oder Bahnhöfe, die nicht im Kontext stehen."
                 ),
                 messages=[{
                     "role": "user",
@@ -293,6 +382,9 @@ Top-5 schlimmste Tage mit LLM-hypothetisierter Ursache:
         st.success(answer)
         st.caption(f"Tokens: {msg.usage.input_tokens} input / {msg.usage.output_tokens} output  "
                    f"· Kosten: ${cost:.4f}")
+
+        with st.expander("🔍 Welche Daten hat Claude gesehen? (Transparenz)"):
+            st.code(context, language="text")
 
     # Anzeige der vorab analysierten Krisen-Tage
     if not load_llm_reasons().empty:
