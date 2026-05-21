@@ -93,13 +93,13 @@ Wir entschieden uns für **(b)**. Begründung:
 
 | Aspekt | (a) Wochen-Aggregate 5 Jahre | (b) Stations-Auflösung 48 Tage |
 |---|---|---|
-| Rohe Daten-Zeilen | ~265 | **2'739'804** |
+| Rohe Daten-Zeilen | ~265 | **2'739'734** |
 | Spalten pro Zeile | ~5 | **31** (inkl. Wetter, Zeit-Features) |
 | Datenpunkte gesamt | ~1'300 | **~85'000'000** |
 | Stunden-Effekt analysierbar? | nein | **ja** |
 | Bahnhof-Vergleich möglich? | nein | **ja** |
 | Wetter-Korrelation pro Stunde? | nein | **ja** |
-| OLS-Regression mit Kategorien (16 Zugtypen)? | n zu klein | **n = 200'000 stable** |
+| OLS-Regression mit Kategorien (16 Zugtypen)? | n zu klein | **n = 2.74 Mio stabil** |
 | Story-Faktor „5 Jahre Trend" | hoch | mittel |
 
 Statistisch wären auf (a) drei unserer vier geplanten Tests (ANOVA Linientyp,
@@ -175,10 +175,10 @@ API-Key wird über `.env`-Datei und `python-dotenv` geladen (gitignored).
 
 | Gruppe | n | Mean Delay (s) |
 |---|---|---|
-| Werktag | 1'957'415 | **49.9** |
-| Wochenende | 782'389 | **34.4** |
+| Werktag | 1'957'372 | **50.1** |
+| Wochenende | 782'362 | **34.6** |
 
-**Ergebnis**: **t = 66.65**, **p < 10⁻³⁰⁰** (Welch's t-Test, Heteroskedastizität-tolerant)
+**Ergebnis**: **t = 94.97**, **p < 10⁻³⁰⁰** (Welch's t-Test, Heteroskedastizität-tolerant)
 
 Werktag-Züge sind im Mittel **15.5 Sekunden** stärker verspätet als
 Wochenend-Züge. Bei n ≈ 2.7 Millionen Beobachtungen ist der Effekt
@@ -192,7 +192,7 @@ bei 28 s, das **95. Perzentil bei 181 s** — d.h. nur ~5 % der Halte
 
 ### 3.2 H2: Linientyp-Effekt (Einweg-ANOVA)
 
-**One-Way ANOVA über 14 Linientypen**: **F = 2'914.9**, **p < 10⁻³⁰⁰**
+**One-Way ANOVA über 14 Linientypen**: **F = 8'450.0**, **p < 10⁻³⁰⁰**
 (höchst signifikant). Tukey HSD-Post-hoc-Test in Notebook 03 zeigt,
 welche Paare sich konkret unterscheiden.
 
@@ -201,17 +201,17 @@ Mittlere Verspätung pro Linientyp (sortiert):
 | Linientyp | n | Mean Delay (s) | Kategorie |
 |---|---:|---:|---|
 | RJX (RailJet eXpress) | 1'160 | **441.6** | International |
-| TGV | 1'567 | **345.5** | International |
-| EC (EuroCity) | 15'645 | **291.9** | International |
-| EXT (Extrazug) | 404 | 194.8 | Sonderverkehr |
+| TGV | 1'565 | **347.9** | International |
+| EC (EuroCity) | 15'639 | **298.0** | International |
+| EXT (Extrazug) | 403 | 197.5 | Sonderverkehr |
 | ICE | 6'023 | 136.8 | International |
 | TER (TER France) | 19'563 | 65.7 | International |
 | SN (S-Nacht) | 21'937 | 54.5 | Regionalverkehr |
-| **S (S-Bahn)** | **1'699'564** | **48.7** | Regional |
+| **S (S-Bahn)** | **1'699'562** | **48.7** | Regional |
 | RE (RegioExpress) | 158'182 | 45.2 | Regional |
-| R (Regio) | 496'009 | 33.1 | Regional |
-| IC (InterCity) | 119'892 | 31.7 | Fernverkehr CH |
-| IR (InterRegio) | 198'816 | 27.1 | Fernverkehr CH |
+| R (Regio) | 495'983 | 33.2 | Regional |
+| IC (InterCity) | 119'879 | 31.8 | Fernverkehr CH |
+| IR (InterRegio) | 198'809 | 27.2 | Fernverkehr CH |
 
 **Interpretation**: Internationale Züge (TGV, EC, ICE, RJX) zeigen mit Abstand
 die höchste Mean-Verspätung — sie sammeln Verspätung über lange Strecken im
@@ -227,11 +227,11 @@ gegen `delay_arr_sec` über n ≈ 2.74 Mio Beobachtungen:
 
 | Variable | Pearson r | Pearson p | Spearman ρ | Spearman p |
 |---|---:|---:|---:|---:|
-| **Niederschlag** (mm) | **+0.0136** | < 10⁻¹¹¹ | **+0.0586** | < 10⁻³⁰⁰ |
-| Sonnenscheindauer (min) | −0.0234 | < 10⁻³⁰⁰ | −0.0524 | < 10⁻³⁰⁰ |
-| Rel. Luftfeuchte (%) | +0.0181 | < 10⁻¹⁹⁷ | +0.0516 | < 10⁻³⁰⁰ |
-| Temperatur (°C) | −0.0073 | < 10⁻³² | −0.0333 | < 10⁻³⁰⁰ |
-| Windgeschwindigkeit (m/s) | −0.0017 | 0.005 | −0.0006 | 0.34 |
+| **Niederschlag** (mm) | **+0.0212** | < 10⁻²⁶⁹ | **+0.0586** | < 10⁻³⁰⁰ |
+| Sonnenscheindauer (min) | −0.0368 | < 10⁻³⁰⁰ | −0.0525 | < 10⁻³⁰⁰ |
+| Rel. Luftfeuchte (%) | +0.0285 | < 10⁻³⁰⁰ | +0.0516 | < 10⁻³⁰⁰ |
+| Temperatur (°C) | −0.0114 | < 10⁻⁷⁹ | −0.0333 | < 10⁻³⁰⁰ |
+| Windgeschwindigkeit (m/s) | −0.0032 | < 10⁻⁸ | −0.0006 | 0.33 |
 
 **Interpretation**: Alle Wetter-Effekte sind durch die enorme Stichprobengrösse
 **statistisch signifikant** (ausser Wind im Spearman) — aber die Effekt-Stärke
@@ -246,35 +246,36 @@ Verspätungs-Varianz. Pünktlichkeit hängt dominiert von operativen Faktoren ab
 
 ### 3.4 H4: Multiple OLS-Regression
 
-Modell (statsmodels `smf.ols`, n = 200'000 Zufalls-Subsample):
+Modell (statsmodels `smf.ols`, n = 2'737'961 — vollständiger Wetter-valider
+Datensatz, kein Subsample, daher deterministische Schätzer):
 ```
 delay_arr_sec ~ C(is_rush_hour) + C(is_weekend) + C(verkehrsmittel_text)
               + niederschlag_mm + temperatur_c
 ```
 
-**Anpassungsgüte**: **R² = 0.0462** (4.62 %), Adj. R² = 0.0462,
-**F = 510.3, p < 10⁻³⁰⁰**
+**Anpassungsgüte**: **R² = 0.0429** (4.29 %), Adj. R² = 0.0429,
+**F = 6'466.9, p < 10⁻³⁰⁰**
 
 Wichtigste Koeffizienten (Auswahl, alle mit Standardfehler in Notebook 03):
 
 | Variable | Koeffizient (s) | p-Value | Interpretation |
 |---|---:|---:|---|
-| **Rush-Hour** (True) | **+9.5** | < 10⁻³⁹ | Rush-Hour-Verspätung ~10 s |
-| **Wochenende** (True) | **−13.1** | < 10⁻⁷⁹ | Wochenende ~13 s pünktlicher |
-| **Niederschlag** (pro mm) | **+6.55** | < 10⁻¹⁷ | Pro mm Regen +6.5 s |
-| Temperatur (pro °C) | +0.056 | 0.35 | nicht signifikant |
-| NJ (Nachtzug, vs Referenz) | +537.3 | < 10⁻³⁹ | Sonderfall: wenige Züge, hohe Streuung |
-| TGV (vs Referenz) | +198.7 | < 10⁻⁶ | Internationaler Import-Effekt |
-| EC (vs Referenz) | +196.1 | < 10⁻⁶ | dito |
-| S (vs Referenz) | −67.3 | 0.07 | S-Bahn knapp nicht signifikant pünktlicher |
+| **Rush-Hour** (True) | **+10.4** | < 10⁻³⁰⁰ | Rush-Hour-Verspätung ~10 s |
+| **Wochenende** (True) | **−12.0** | < 10⁻³⁰⁰ | Wochenende ~12 s pünktlicher |
+| **Niederschlag** (pro mm) | **+6.05** | < 10⁻¹⁹⁹ | Pro mm Regen +6.0 s |
+| Temperatur (pro °C) | +0.07 | < 10⁻⁵ | signifikant, aber praktisch vernachlässigbar |
+| NJ (Nachtzug, vs Referenz) | +357.0 | < 10⁻¹⁴⁶ | Sonderfall: wenige Züge, hohe Streuung |
+| TGV (vs Referenz) | +196.5 | < 10⁻⁴⁸ | Internationaler Import-Effekt |
+| EC (vs Referenz) | +146.8 | < 10⁻²⁹ | dito |
+| S (vs Referenz) | −102.9 | < 10⁻¹⁴ | S-Bahn signifikant pünktlicher |
 
 **Interpretation**:
-1. Die **kombinierten Faktoren erklären nur ~4.6 % der Verspätungs-Varianz** —
+1. Die **kombinierten Faktoren erklären nur ~4.3 % der Verspätungs-Varianz** —
    ehrliche Erkenntnis, dass Verspätungen dominant durch unvorhersagbare,
    idiosynkratische Ereignisse bestimmt sind (Defekte, einzelne Verspätungen,
    Personalengpässe).
 2. Die **drei dominierenden Effekte** sind dennoch konsistent mit der
-   Erwartung: Rush-Hour +10 s, Wochenende −13 s, Niederschlag +6.5 s/mm.
+   Erwartung: Rush-Hour +10 s, Wochenende −12 s, Niederschlag +6.0 s/mm.
 3. Internationale Zugtypen (TGV, EC, NJ) bestätigen den "Import-Effekt".
 
 ### 3.5 LLM-Hypothesen für Krisen-Tage

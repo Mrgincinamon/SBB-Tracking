@@ -115,13 +115,51 @@ def build_cells() -> list:
         print(f"Nachher: {n_after:,} Records  ({100*n_after/n_before:.1f}%)")
     """))
 
+    # Plausibilitäts-Filter für korrupte Soll-Zeitstempel
+    cells.append(md("""
+        ## Plausibilitäts-Filter: physikalisch unmögliche Negativ-Verspätungen
+
+        Eine Stichprobe der extremsten Negativwerte zeigt ein Datenqualitäts-
+        Problem im **Quell-Feed**: Einzelne Records haben ein **Soll-Datum
+        mehrere Tage nach dem Betriebstag**, wodurch sich rechnerisch
+        Verspätungen von z.B. **−48 Stunden** ergeben. Betroffen sind v.a.
+        Nacht- und Auslandszüge (NJ, EC).
+
+        An getakteten SBB-Halten kann ein Zug nicht mehr als wenige Minuten
+        *vor* Fahrplan ankommen — Werte unter **−10 Minuten** sind daher keine
+        echten Frühankünfte, sondern fehlerhafte Zeitstempel. Wir entfernen sie
+        (Schwelle `MIN_PLAUSIBLE_DELAY_SEC = −600 s`, ausgelagert in `utils.py`).
+
+        **Wichtig:** Grosse *positive* Verspätungen bleiben erhalten — sie sind
+        reale Störungen (Auslandszüge akkumulieren im Ausland Verspätung) und
+        gehören zum Untersuchungsgegenstand.
+    """))
+    cells.append(code("""
+        # Vor dem Filter: extremste Negativwerte als Beleg fuer das Quell-Feed-Problem
+        worst = df.nsmallest(3, "delay_arr_sec")[
+            ["betriebstag", "haltestellen_name", "ankunftszeit", "an_prognose",
+             "delay_arr_sec", "linien_text"]]
+        print("Extremste Negativ-Verspaetungen VOR Filter (korrupte Soll-Zeitstempel):")
+        print(worst.to_string(index=False))
+
+        n_pre = len(df)
+        df = utils.filter_implausible_delays(df, col="delay_arr_sec")
+        n_removed = n_pre - len(df)
+        print(f"\\nEntfernt: {n_removed:,} Records mit Ankunft > 10 Min vor Fahrplan "
+              f"({100*n_removed/n_pre:.4f}%)")
+        print(f"Verbleibend: {len(df):,} Records")
+        print(f"Neuer Minimal-/Maximalwert: {df['delay_arr_sec'].min():.0f}s / "
+              f"{df['delay_arr_sec'].max():.0f}s")
+    """))
+
     # Outlier handling
     cells.append(md("""
-        ### Ausreisser inspizieren
+        ### Positive Ausreisser inspizieren
 
         Verspätungen mit > 30 Minuten sind ungewöhnlich — meist Folge von
-        Notfällen, Streckensperrungen oder fehlerhaften Messungen. Wir
-        behalten sie, weisen sie aber explizit aus.
+        Notfällen, Streckensperrungen oder Auslandszügen. Im Gegensatz zu den
+        unmöglichen Negativwerten sind das **plausible reale Störungen**, die
+        wir behalten, aber explizit ausweisen.
     """))
     cells.append(code("""
         print("Verteilung Ankunftsverspaetung (Sekunden):")

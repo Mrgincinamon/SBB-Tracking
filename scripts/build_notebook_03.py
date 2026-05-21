@@ -391,8 +391,8 @@ def build_cells() -> list:
     cells.append(md("""
         ## Limitationen und Diskussion
 
-        - **Zeitraum begrenzt**: 50 Tage (April – Mitte Mai 2026). Saisonale
-          Effekte (Winter, Bauarbeiten-Hochphase) nicht abgedeckt.
+        - **Zeitraum begrenzt**: 48 Betriebstage (31. März – 19. Mai 2026).
+          Saisonale Effekte (Winter, Bauarbeiten-Hochphase) nicht abgedeckt.
         - **Nur SBB**: Andere Anbieter (BLS, SOB, RhB) fehlen — Ergebnisse
           gelten nur für SBB-Fernverkehr + S-Bahn.
         - **Wetter-Distanz**: Bahnhof zu Wetterstation kann bis ~40 km sein

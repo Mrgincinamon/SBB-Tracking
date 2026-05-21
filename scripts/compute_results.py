@@ -99,10 +99,11 @@ def main() -> int:
                    "temperatur_c", "hour"]
     avail = [c for c in cols_needed if c in valid.columns]
     if {"delay_arr_sec", "is_rush_hour", "is_weekend"}.issubset(set(avail)):
+        # Vollständiger Wetter-valider Datensatz (kein Subsample): macht die
+        # Koeffizienten deterministisch und stabil. Seltene Linientypen (z.B.
+        # NJ, n<1000) wären in einem 200k-Subsample stark untererfasst und
+        # lieferten schwankende Schätzer.
         sub = valid[avail].dropna()
-        # Subsample auf 200k fuer Speed
-        if len(sub) > 200_000:
-            sub = sub.sample(n=200_000, random_state=42)
         formula_parts = []
         if "is_rush_hour" in avail:
             formula_parts.append("C(is_rush_hour)")
@@ -149,13 +150,17 @@ def main() -> int:
             k: int(v) for k, v in valid["verkehrsmittel_text"].value_counts().items()
         }
 
-    # Datum-Range
-    if "ankunftszeit" in valid.columns:
-        ts = pd.to_datetime(valid["ankunftszeit"], errors="coerce").dropna()
+    # Datum-Range — auf Basis BETRIEBSTAG (operativer Tag), nicht ankunftszeit.
+    # ankunftszeit kann nach Mitternacht auf den Folgetag fallen (Nachtzüge),
+    # was die Kalenderspanne künstlich aufbläht. Die echte Datenbasis ist die
+    # Anzahl distinct Betriebstage (= was App und Präsentation ausweisen).
+    if "betriebstag" in valid.columns:
+        bt = pd.to_datetime(valid["betriebstag"], errors="coerce").dropna()
         r["data_range"] = {
-            "start": str(ts.min().date()),
-            "end": str(ts.max().date()),
-            "n_days": int((ts.max() - ts.min()).days + 1),
+            "start": str(bt.min().date()),
+            "end": str(bt.max().date()),
+            "n_days": int(bt.dt.normalize().nunique()),
+            "n_calendar_span": int((bt.max() - bt.min()).days + 1),
         }
 
     out_json = OUT_DIR / "results.json"

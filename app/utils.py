@@ -101,6 +101,27 @@ def is_classically_delayed(seconds: float, threshold: float = 180.0) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Plausibilitäts-Filter für Verspätungswerte
+# ---------------------------------------------------------------------------
+
+# Ankünfte mehr als 10 Minuten VOR Fahrplan sind an getakteten SBB-Halten
+# physikalisch nicht möglich. Stichproben zeigen: solche Werte stammen aus
+# fehlerhaften Soll-Zeitstempeln im Quell-Feed (z.B. Soll-Datum mehrere Tage
+# nach dem Betriebstag, v.a. bei Nacht-/Auslandszügen NJ/EC). Wir entfernen sie.
+# Grosse POSITIVE Verspätungen bleiben erhalten — sie sind reale Störungen
+# (z.B. Auslandszüge, die im Ausland Verspätung akkumulieren).
+MIN_PLAUSIBLE_DELAY_SEC = -600.0
+
+
+def filter_implausible_delays(df: pd.DataFrame, col: str = "delay_arr_sec",
+                              min_sec: float = MIN_PLAUSIBLE_DELAY_SEC) -> pd.DataFrame:
+    """Entferne physikalisch unmögliche Negativ-Verspätungen (korrupte
+    Soll-Zeitstempel). Behält NaN-Werte NICHT (die werden separat gefiltert)
+    und alle Werte >= `min_sec`."""
+    return df.loc[df[col] >= min_sec].copy()
+
+
+# ---------------------------------------------------------------------------
 # Zeit-Features
 # ---------------------------------------------------------------------------
 
@@ -117,7 +138,8 @@ def add_time_features(df: pd.DataFrame, ts_col: str = "ankunftszeit") -> pd.Data
         lambda i: WEEKDAY_NAMES_DE[int(i)] if pd.notna(i) and 0 <= i < 7 else None
     )
     df["is_weekend"] = df["weekday_num"].isin([5, 6])
-    # Rush Hour = 6-9 Uhr morgens und 16-19 Uhr abends an Werktagen
+    # Rush Hour = Stunden 6-8 (06:00-08:59) und 16-18 (16:00-18:59) an Werktagen.
+    # `between` ist inklusiv -> 6,7,8 bzw. 16,17,18.
     df["is_rush_hour"] = (~df["is_weekend"]) & (
         df["hour"].between(6, 8) | df["hour"].between(16, 18)
     )

@@ -95,6 +95,34 @@ def test_add_delay_class_does_not_mutate():
 
 
 # ---------------------------------------------------------------------------
+# filter_implausible_delays
+# ---------------------------------------------------------------------------
+
+class TestFilterImplausibleDelays:
+    def test_removes_impossible_early_arrivals(self):
+        df = pd.DataFrame({"delay_arr_sec": [-173092.0, -601.0, -600.0, -300.0, 0.0, 4000.0]})
+        out = utils.filter_implausible_delays(df)
+        # -173092 und -601 raus; -600 (genau Grenze) und alles darueber bleibt
+        assert out["delay_arr_sec"].tolist() == [-600.0, -300.0, 0.0, 4000.0]
+
+    def test_keeps_large_positive_delays(self):
+        # Reale Auslands-Zug-Verspaetungen (Stunden) duerfen NICHT entfernt werden
+        df = pd.DataFrame({"delay_arr_sec": [14620.0, 7200.0, 100.0]})
+        out = utils.filter_implausible_delays(df)
+        assert len(out) == 3
+
+    def test_does_not_mutate_input(self):
+        df = pd.DataFrame({"delay_arr_sec": [-5000.0, 10.0]})
+        out = utils.filter_implausible_delays(df)
+        assert len(df) == 2 and len(out) == 1
+
+    def test_custom_threshold(self):
+        df = pd.DataFrame({"delay_arr_sec": [-100.0, -50.0, 0.0]})
+        out = utils.filter_implausible_delays(df, min_sec=-60.0)
+        assert out["delay_arr_sec"].tolist() == [-50.0, 0.0]
+
+
+# ---------------------------------------------------------------------------
 # add_time_features
 # ---------------------------------------------------------------------------
 
