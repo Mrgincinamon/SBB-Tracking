@@ -247,9 +247,11 @@ _STOPWORDS = {
 
 
 def _apply_example():
+    """Pill-Klick: Frage übernehmen UND direkt absenden (1-Klick-UX)."""
     picked = st.session_state.get("example_pills")
     if picked:
         st.session_state.q_text = picked
+        st.session_state.auto_generate = True
 
 
 def build_llm_context(df: pd.DataFrame, question: str) -> str:
@@ -330,27 +332,38 @@ Top-5 unpünktlichste Bahnhöfe gesamt:
 
 with tab_insight:
     st.header("🤖 Pendler-Insight — LLM-Beratung")
-    st.caption(f"Powered by Anthropic {MODEL_NAME}  ·  Antwort basiert ausschliesslich "
-               "auf den Projektdaten")
 
     if "q_text" not in st.session_state:
         st.session_state.q_text = DEFAULT_Q
 
     st.pills(
-        "💡 Beispiel-Fragen (Klick übernimmt in das Eingabefeld):",
+        "💡 Beispiel-Fragen (ein Klick beantwortet die Frage direkt):",
         EXAMPLE_QUESTIONS,
         selection_mode="single",
         key="example_pills",
         on_change=_apply_example,
     )
 
+    st.markdown("### Stell deine Frage zu Strecke, Zugtyp oder Tageszeit")
     insight_q = st.text_area(
-        "Deine Frage zu Strecke, Zugtyp oder Tageszeit:",
+        "Frage-Eingabe",
         key="q_text",
         height=80,
+        label_visibility="collapsed",
+    )
+    st.markdown(
+        f"<span style='font-size:0.72em; color:#888;'>Powered by Anthropic "
+        f"{MODEL_NAME} · Antwort basiert ausschliesslich auf den Projektdaten</span>",
+        unsafe_allow_html=True,
     )
 
-    if st.button("Antwort generieren", type="primary"):
+    # Generieren wenn Button geklickt ODER eine Beispiel-Pill gewählt wurde
+    generate = st.button("Antwort generieren", type="primary")
+    if st.session_state.get("auto_generate"):
+        generate = True
+        st.session_state.auto_generate = False
+
+    if generate:
         from anthropic import Anthropic
         client = Anthropic()
 
