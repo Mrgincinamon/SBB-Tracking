@@ -337,7 +337,7 @@ with tab_insight:
         st.session_state.q_text = DEFAULT_Q
 
     st.pills(
-        "💡 Beispiel-Fragen (ein Klick beantwortet die Frage direkt):",
+        "💡 Was möchtest du über die Verspätungen der SBB wissen..)",
         EXAMPLE_QUESTIONS,
         selection_mode="single",
         key="example_pills",
