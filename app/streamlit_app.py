@@ -39,6 +39,13 @@ st.set_page_config(
 load_dotenv(utils.project_root() / ".env")
 MODEL_NAME = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
+# Streamlit-Standard "Running"-Icon (Schwimmer) oben rechts ausblenden —
+# wir nutzen stattdessen die eigene SBB-Zug-Animation als Loading-Indikator.
+st.markdown(
+    "<style>[data-testid='stStatusWidget']{display:none;}</style>",
+    unsafe_allow_html=True,
+)
+
 
 # ---------------------------------------------------------------------------
 # Daten cachen
@@ -212,27 +219,159 @@ with tab_tod:
     fig.update_layout(height=400, margin=dict(l=40, r=20, t=30, b=40))
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Rush-Hour vs. Off-Peak")
-    rush = df.loc[df["is_rush_hour"], "delay_arr_sec"]
-    off = df.loc[~df["is_rush_hour"], "delay_arr_sec"]
+    # Drill-Down: Wochentag + Stunde auswählen → Kennzahlen passen sich an
+    st.markdown("#### Kennzahlen — wähle Tag und/oder Stunde für Details")
+    fcol1, fcol2 = st.columns(2)
+    day_opt = fcol1.selectbox(
+        "Wochentag", ["Alle Tage"] + ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+        key="tod_day",
+    )
+    hour_opt = fcol2.selectbox(
+        "Stunde", ["Alle Stunden"] + list(range(24)),
+        key="tod_hour",
+    )
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Rush-Hour: Mean Delay", f"{rush.mean():.1f} s",
-                f"{rush.mean() - off.mean():+.1f} s vs Off-Peak")
-    col2.metric("Off-Peak: Mean Delay", f"{off.mean():.1f} s")
-    col3.metric("Differenz", f"{(rush.mean() / off.mean() - 1) * 100:+.1f}%")
+    overall_mean = df["delay_arr_sec"].mean()
+    sub = df
+    label_parts = []
+    if day_opt != "Alle Tage":
+        sub = sub[sub["weekday"] == day_opt]
+        label_parts.append(day_opt)
+    if hour_opt != "Alle Stunden":
+        sub = sub[sub["hour"] == int(hour_opt)]
+        label_parts.append(f"{int(hour_opt):02d}:00 Uhr")
+
+    if label_parts:
+        # Spezifische Auswahl (Tag und/oder Stunde)
+        st.subheader(f"📍 Auswahl: {' · '.join(label_parts)}")
+        c1, c2, c3 = st.columns(3)
+        if len(sub) > 0:
+            c1.metric(
+                "Mean Delay", f"{sub['delay_arr_sec'].mean():.1f} s",
+                f"{sub['delay_arr_sec'].mean() - overall_mean:+.1f} s vs Ø "
+                f"{overall_mean:.1f} s",
+            )
+            c2.metric("Halte in Auswahl", f"{len(sub):,}")
+            c3.metric("Abweichung vom Schnitt",
+                      f"{(sub['delay_arr_sec'].mean() / overall_mean - 1) * 100:+.1f} %")
+        else:
+            c1.info("Keine Daten für diese Auswahl.")
+    else:
+        # Default: Rush-Hour vs Off-Peak
+        st.subheader("Rush-Hour vs. Off-Peak")
+        rush = df.loc[df["is_rush_hour"], "delay_arr_sec"]
+        off = df.loc[~df["is_rush_hour"], "delay_arr_sec"]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Rush-Hour: Mean Delay", f"{rush.mean():.1f} s",
+                    f"{rush.mean() - off.mean():+.1f} s vs Off-Peak")
+        col2.metric("Off-Peak: Mean Delay", f"{off.mean():.1f} s")
+        col3.metric("Differenz", f"{(rush.mean() / off.mean() - 1) * 100:+.1f}%")
 
 
 # === TAB 3: Pendler-Insight (LLM) ===
-EXAMPLE_QUESTIONS = [
+import random
+
+# Allgemeine (städteunabhängige) Beispiel-Fragen
+_GENERIC_QUESTIONS = [
     "Zu welcher Tageszeit sind Züge am pünktlichsten?",
     "Welcher Zugtyp ist am zuverlässigsten — S-Bahn, IC oder IR?",
     "Sind Wochenenden wirklich pünktlicher als Werktage?",
     "Welche Bahnhöfe haben die grössten Verspätungen?",
     "Lohnt es sich, die Rush-Hour zu meiden?",
-    "Wie pünktlich ist der Bahnhof Bern?",
+    "Sind internationale Züge unpünktlicher als Schweizer Züge?",
+    "Wie stark beeinflusst Regen die Verspätungen?",
+    "Welcher Wochentag ist am schlimmsten?",
+    "Ist der Abendverkehr schlimmer als der Morgenverkehr?",
+    "Wann ist die schlechteste Zeit zum Reisen?",
+    "Sind Nachtzüge besonders unpünktlich?",
+    "Wie pünktlich sind die Züge am frühen Morgen?",
 ]
+
+# Städte für template-generierte Fragen (alle mit Daten im Datensatz)
+_CITIES = [
+    "Zürich", "Bern", "Basel", "Genève", "Lausanne", "Luzern", "Winterthur",
+    "St. Gallen", "Lugano", "Olten", "Biel", "Chur", "Fribourg", "Zug",
+    "Thun", "Neuchâtel", "Schaffhausen", "Aarau", "Baden", "Wil",
+]
+
+# Templates mit {c}-Platzhalter für die Stadt
+_CITY_TEMPLATES = [
+    "Wie pünktlich ist der Bahnhof {c}?",
+    "Ist {c} ein Verspätungs-Hotspot?",
+    "Lohnt sich die Fahrt ab {c} morgens?",
+    "Wie zuverlässig sind die Züge in {c}?",
+]
+
+
+def question_pool() -> list[str]:
+    """Erzeugt den vollständigen Fragen-Pool (generisch + Stadt × Template)."""
+    pool = list(_GENERIC_QUESTIONS)
+    for c in _CITIES:
+        for t in _CITY_TEMPLATES:
+            pool.append(t.format(c=c))
+    return pool
+
+
+N_PILLS = 6  # Anzahl gleichzeitig angezeigter Bubble-Fragen
 DEFAULT_Q = ""  # Feld startet leer, Placeholder lädt zum Fragen ein
+
+# SBB-Zug-Loading-Animation: handgezeichneter SVG-Zug (kein Emoji) faehrt auf
+# Gleisen in SBB-Rot. CSS-Animation laeuft browserseitig waehrend des API-Calls.
+# Hinweis: Eigene SVG-Grafik im SBB-Farbstil (#EB0000), KEIN offizielles SBB-Asset.
+_TRAIN_SVG = """
+<svg width="475" height="50" viewBox="0 0 475 50" xmlns="http://www.w3.org/2000/svg">
+  <rect x="108" y="26" width="7" height="3" fill="#555"/>
+  <rect x="219" y="26" width="7" height="3" fill="#555"/>
+  <rect x="330" y="26" width="7" height="3" fill="#555"/>
+  <rect x="4" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="4" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="12" y="18" width="88" height="10" fill="#23262b"/><rect x="22" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="42" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="62" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="82" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="14" y="14" width="10" height="22" fill="#EB0000"/><rect x="86" y="14" width="10" height="22" fill="#EB0000"/><rect x="4" y="31" width="104" height="3" fill="#EB0000"/><rect x="4" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="26" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="86" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="115" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="115" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="123" y="18" width="88" height="10" fill="#23262b"/><rect x="133" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="153" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="173" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="193" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="125" y="14" width="10" height="22" fill="#EB0000"/><rect x="197" y="14" width="10" height="22" fill="#EB0000"/><rect x="115" y="31" width="104" height="3" fill="#EB0000"/><rect x="115" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="137" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="197" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="226" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="226" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="234" y="18" width="88" height="10" fill="#23262b"/><rect x="244" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="264" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="284" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="304" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="236" y="14" width="10" height="22" fill="#EB0000"/><rect x="308" y="14" width="10" height="22" fill="#EB0000"/><rect x="226" y="31" width="104" height="3" fill="#EB0000"/><rect x="226" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="248" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="308" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="337" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="337" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="345" y="18" width="88" height="10" fill="#23262b"/><rect x="355" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="375" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="395" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="415" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="347" y="14" width="10" height="22" fill="#EB0000"/><rect x="419" y="14" width="10" height="22" fill="#EB0000"/><rect x="337" y="31" width="104" height="3" fill="#EB0000"/><rect x="337" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="359" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="419" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <path d="M441 13 q22 0 34 12 q2 4 1 11 H455 q-14 0 -14 -12 Z" fill="#EB0000"/>
+  <path d="M444 17 q15 1 23 9 H444 Z" fill="#15171a"/>
+  <circle cx="471" cy="31" r="2.4" fill="#fff4b0"/>
+</svg>
+"""
+
+TRAIN_LOADER_HTML = f"""
+<style>
+@keyframes sbb-train-move {{
+  0%   {{ left: -490px; }}      /* Zug (~475px) startet komplett links ausserhalb */
+  100% {{ left: 100%; }}        /* linke Kante an rechtem Rand -> faehrt ganz raus */
+}}
+.sbb-loader-wrap {{ margin: 0.6rem 0 0.4rem 0; }}
+.sbb-track {{
+  position: relative;
+  height: 58px;
+  overflow: hidden;
+  /* zwei Schienen + Schwellen */
+  border-bottom: 4px solid #9a9a9a;
+  background:
+    repeating-linear-gradient(90deg,#9a9a9a 0 5px,transparent 5px 24px)
+      bottom 0 left 0 / 100% 10px no-repeat,
+    linear-gradient(#bbbbbb,#bbbbbb)
+      bottom 4px left 0 / 100% 2px no-repeat;
+}}
+.sbb-train {{
+  position: absolute;
+  bottom: 8px;
+  left: -490px;
+  animation: sbb-train-move 6s linear infinite;
+  will-change: left;
+}}
+.sbb-loader-text {{
+  text-align: center;
+  color: #EB0000;          /* SBB-Rot */
+  font-weight: 600;
+  margin-top: 8px;
+  letter-spacing: 0.3px;
+}}
+</style>
+<div class="sbb-loader-wrap">
+  <div class="sbb-track"><div class="sbb-train">{_TRAIN_SVG}</div></div>
+  <div class="sbb-loader-text">Claude wertet die Fahrplandaten aus …</div>
+</div>
+"""
 
 # Deutsche Stoppwörter, die bei der Bahnhof-Keyword-Suche ignoriert werden
 _STOPWORDS = {
@@ -336,13 +475,20 @@ with tab_insight:
     if "q_text" not in st.session_state:
         st.session_state.q_text = DEFAULT_Q
 
+    # Zufällige Bubble-Auswahl, stabil innerhalb der Session, neu bei Refresh
+    if "pill_choices" not in st.session_state:
+        st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
+
     st.pills(
         "💡 Was möchtest du über die Verspätungen der SBB wissen?",
-        EXAMPLE_QUESTIONS,
+        st.session_state.pill_choices,
         selection_mode="single",
         key="example_pills",
         on_change=_apply_example,
     )
+    if st.button("🎲 Andere Fragen", key="shuffle_pills"):
+        st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
+        st.rerun()
 
     st.markdown("### Stell deine Frage zu Strecke, Zugtyp oder Tageszeit")
     insight_q = st.text_area(
@@ -372,7 +518,10 @@ with tab_insight:
 
         context = build_llm_context(df, insight_q)
 
-        with st.spinner("Claude analysiert die Daten..."):
+        # SBB-Zug-Loading-Animation (CSS läuft browserseitig während des API-Calls)
+        loader = st.empty()
+        loader.markdown(TRAIN_LOADER_HTML, unsafe_allow_html=True)
+        try:
             msg = client.messages.create(
                 model=MODEL_NAME,
                 max_tokens=600,
@@ -394,6 +543,8 @@ with tab_insight:
             answer = msg.content[0].text
             cost = (msg.usage.input_tokens / 1e6 * 3.0
                     + msg.usage.output_tokens / 1e6 * 15.0)
+        finally:
+            loader.empty()  # Animation entfernen sobald Antwort da ist
 
         st.success(answer)
         st.caption(f"Tokens: {msg.usage.input_tokens} input / {msg.usage.output_tokens} output  "

@@ -76,3 +76,11 @@ data/processed/
 # --- Logs ---
 *.log
 logs/
+
+# --- Temp / Test-Artefakte (lokal, nicht committen) ---
+scripts/_tmp_*
+scripts/_train_preview.html
+scripts/_train_render.png
+presentation/screenshots/webapp_02_tod_selected.png
+presentation/screenshots/webapp_03b_answer.png
+presentation/screenshots/webapp_loading_train.png
