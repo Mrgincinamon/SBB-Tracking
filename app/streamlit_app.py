@@ -173,6 +173,26 @@ st.markdown(
         transition: filter 0.12s ease-in, opacity 0.12s ease-in;
         pointer-events: none;
     }
+
+    /* "Andere Fragen": dezenter, abgerundeter Sekundär-Button (Outline, Hover rot) */
+    .st-key-shuffle_pills button {
+        border-radius: 18px !important;
+        border: 1px solid #cfcfcf !important;
+        background: transparent !important;
+        color: #6b6b6b !important;
+        font-weight: 500 !important;
+        padding: 4px 18px !important;
+        transition: all 0.15s ease !important;
+    }
+    .st-key-shuffle_pills button:hover {
+        border-color: #EB0000 !important;
+        color: #EB0000 !important;
+        background: #ffffff !important;
+    }
+    .st-key-shuffle_pills button:focus:not(:active) {
+        border-color: #EB0000 !important;
+        color: #EB0000 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -701,7 +721,7 @@ def _insight_panel(df):
         on_change=_apply_example,
         label_visibility="collapsed",
     )
-    if st.button("🎲 Andere Fragen", key="shuffle_pills"):
+    if st.button("Andere Fragen", key="shuffle_pills"):
         st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
         st.rerun(scope="fragment")
 
@@ -770,7 +790,7 @@ def _insight_panel(df):
 
         st.success(answer)
 
-        with st.expander("🔍 Welche Daten hat Claude gesehen? (Transparenz)"):
+        with st.expander("Welche Daten hat Claude gesehen? (Transparenz)"):
             st.code(context, language="text")
 
     # Anzeige der vorab analysierten Krisen-Tage
