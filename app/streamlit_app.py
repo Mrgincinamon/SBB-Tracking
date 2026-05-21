@@ -166,7 +166,21 @@ def load_llm_reasons() -> pd.DataFrame:
 # UI
 # ---------------------------------------------------------------------------
 
-st.title("🚂 SBB Tracker — Verspätungsanalyse")
+st.markdown(
+    """
+    <div style="border-left: 9px solid #EB0000; padding: 0.15rem 0 0.15rem 1rem;
+                margin: 0.2rem 0 0.1rem 0;">
+      <div style="font-size: 2.35rem; font-weight: 800; color: #1a1a1a;
+                  letter-spacing: -0.5px; line-height: 1.05;">
+        SBB&nbsp;<span style="color:#EB0000;">Tracker</span>
+      </div>
+      <div style="font-size: 1.08rem; color:#444; font-weight:600; margin-top:2px;">
+        Pünktlichkeitsanalyse der Schweizerischen Bundesbahnen
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 st.caption("ZHAW Scientific Programming · FS2026 · Joël Hasler & Patrick Ferreira")
 
 # Datenverfügbarkeit prüfen
@@ -186,13 +200,18 @@ _mean_delay = df_delays["delay_arr_sec"].mean()
 _pct_late = df_delays["is_late_3min"].mean() * 100
 _n_days = df_delays["betriebstag"].nunique()
 kpi1.metric("Analysierte Halte", f"{_n_total/1e6:.2f} M",
-            help="Zug-Halte mit gültiger Ankunftszeit (Status REAL)")
+            help="Ein «Halt» ist ein einzelner Stopp eines Zuges an einem Bahnhof. "
+                 "Ein Zug erzeugt auf seiner Fahrt viele Halte. Wir werten 2.74 "
+                 "Millionen tatsächlich gemessene Halte aus (keine Prognosen).")
 kpi2.metric("Ø Verspätung", f"{_mean_delay:.1f} s",
-            help="Mittlere Ankunftsverspätung über alle Halte")
+            help="Durchschnittliche Ankunftsverspätung über alle Halte, in "
+                 "Sekunden. Ein negativer Wert wäre «zu früh angekommen».")
 kpi3.metric("Klassisch verspätet", f"{_pct_late:.2f} %",
-            help="Anteil Halte mit >3 Minuten Verspätung (SBB-Standard)")
+            help="Anteil der Halte mit mehr als 3 Minuten Verspätung. Diese "
+                 "3-Minuten-Grenze ist die offizielle SBB-Definition von «verspätet».")
 kpi4.metric("Tage Datenbasis", _n_days,
-            help="48 Tage Apr–Mai 2026, hochaufgelöst pro Zug-Halt")
+            help="Anzahl ausgewerteter Betriebstage (Fahrplantage) im Zeitraum "
+                 "31.03.–19.05.2026 — jeder Tag voll aufgelöst pro einzelnen Zug-Halt.")
 
 st.markdown("---")
 
@@ -241,20 +260,23 @@ with tab_karte:
     slider_col1, slider_col2 = st.columns(2)
     with slider_col1:
         min_halte = st.slider(
-            "Mindestanzahl Halte pro Bahnhof (Filter gegen Rauschen)",
+            "Mindest-Datenmenge je Bahnhof (Verlässlichkeits-Filter)",
             min_value=50, max_value=1500, value=200, step=50,
-            help="Gesamtzahl der Zug-Halte an diesem Bahnhof über den ganzen "
-                 "48-Tage-Zeitraum (nicht pro Tag). Bahnhöfe mit weniger Halten "
-                 "werden ausgeblendet, da ihr Mittelwert statistisch unzuverlässig "
-                 "ist. Ab ~500 Halten ist die Schätzung stabil (95%-CI ±11 s).",
+            help="Blendet Bahnhöfe mit wenigen Messungen aus. Hintergrund: Hat ein "
+                 "Bahnhof nur wenige Halte, ist sein Durchschnitt unzuverlässig — "
+                 "ein einzelner stark verspäteter Zug verzerrt ihn dann stark. Je "
+                 "weiter rechts, desto strenger der Filter: es bleiben nur Bahnhöfe "
+                 "mit vielen Halten und damit verlässlichen Mittelwerten. "
+                 "Der Wert ist die Gesamtzahl Halte über alle 48 Tage.",
         )
     with slider_col2:
         min_delay = st.slider(
             "Nur Hotspots: Mindest-Ø-Verspätung [s]",
             min_value=0, max_value=200, value=0, step=10,
-            help="Zeigt nur Bahnhöfe, deren mittlere Ankunftsverspätung mindestens "
-                 "diesen Wert erreicht. 0 = alle anzeigen. Höhere Werte isolieren "
-                 "die Verspätungs-Hotspots (v.a. Grenzbahnhöfe).",
+            help="Zeigt nur Bahnhöfe, deren durchschnittliche Verspätung mindestens "
+                 "so hoch ist. Bei 0 werden alle angezeigt. Schiebst du den Regler "
+                 "nach rechts, bleiben nur die «Hotspots» übrig — die am stärksten "
+                 "verspäteten Bahnhöfe (vor allem Grenzbahnhöfe).",
         )
 
     # Aggregat pro Station (gecacht pro Kantons-Auswahl + Schwellwert)
@@ -284,9 +306,13 @@ with tab_karte:
         aggregate_stations(tuple(selected_cantons), min_halte), min_delay)
 
     kpi_left, kpi_right = st.columns(2)
-    kpi_left.metric("Sichtbare Bahnhöfe", len(by_station))
+    kpi_left.metric("Sichtbare Bahnhöfe", len(by_station),
+                    help="Anzahl Bahnhöfe, die beide Regler oben erfüllen und "
+                         "darum aktuell auf der Karte erscheinen.")
     if min_delay > 0:
-        kpi_right.metric("Hotspot-Schwelle", f"≥ {min_delay} s")
+        kpi_right.metric("Hotspot-Schwelle", f"≥ {min_delay} s",
+                         help="Es werden nur Bahnhöfe gezeigt, deren "
+                              "durchschnittliche Verspätung mindestens so hoch ist.")
 
     # Folium-Karte als STATISCHES HTML rendern (components.html) — viel schneller
     # als st_folium (kein bidirektionaler Roundtrip), gecacht pro Auswahl.
@@ -343,11 +369,10 @@ with tab_karte:
 
     st.subheader(f"Top-20 Bahnhöfe nach mittlerer Verspätung "
                  f"(von {len(by_station)} gefilterten Bahnhöfen)")
-    st.caption("Passt sich automatisch dem Regler oben an.")
     top20 = (by_station.sort_values("mean_delay", ascending=False)
              .head(20)[["designationofficial", "cantonabbreviation", "n_halte",
                         "mean_delay", "pct_late"]])
-    top20.columns = ["Bahnhof", "Kanton", "Halte", "Mean Delay [s]", "% Verspaetet"]
+    top20.columns = ["Bahnhof", "Kanton", "Halte", "Ø Verspätung [s]", "% verspätet"]
     st.dataframe(top20, width="stretch", hide_index=True)
 
 
@@ -401,13 +426,20 @@ with tab_tod:
         c1, c2, c3 = st.columns(3)
         if len(sub) > 0:
             c1.metric(
-                "Mean Delay", f"{sub['delay_arr_sec'].mean():.1f} s",
+                "Ø Verspätung", f"{sub['delay_arr_sec'].mean():.1f} s",
                 f"{sub['delay_arr_sec'].mean() - overall_mean:+.1f} s vs Ø "
                 f"{overall_mean:.1f} s",
+                help="Durchschnittliche Verspätung für die gewählte Kombination "
+                     "aus Tag und/oder Stunde. Der kleine Wert darunter zeigt die "
+                     "Abweichung vom Gesamtschnitt.",
             )
-            c2.metric("Halte in Auswahl", f"{len(sub):,}")
+            c2.metric("Halte in Auswahl", f"{len(sub):,}",
+                      help="Wie viele Zug-Halte in diese Auswahl fallen. Mehr "
+                           "Halte bedeuten einen verlässlicheren Durchschnitt.")
             c3.metric("Abweichung vom Schnitt",
-                      f"{(sub['delay_arr_sec'].mean() / overall_mean - 1) * 100:+.1f} %")
+                      f"{(sub['delay_arr_sec'].mean() / overall_mean - 1) * 100:+.1f} %",
+                      help="Wie stark diese Auswahl prozentual vom Gesamtdurchschnitt "
+                           "abweicht. Positiv = unpünktlicher als üblich.")
         else:
             c1.info("Keine Daten für diese Auswahl.")
     else:
@@ -416,10 +448,16 @@ with tab_tod:
         rush = df.loc[df["is_rush_hour"], "delay_arr_sec"]
         off = df.loc[~df["is_rush_hour"], "delay_arr_sec"]
         col1, col2, col3 = st.columns(3)
-        col1.metric("Rush-Hour: Mean Delay", f"{rush.mean():.1f} s",
-                    f"{rush.mean() - off.mean():+.1f} s vs Off-Peak")
-        col2.metric("Off-Peak: Mean Delay", f"{off.mean():.1f} s")
-        col3.metric("Differenz", f"{(rush.mean() / off.mean() - 1) * 100:+.1f}%")
+        col1.metric("Rush-Hour: Ø Verspätung", f"{rush.mean():.1f} s",
+                    f"{rush.mean() - off.mean():+.1f} s vs Off-Peak",
+                    help="Mittlere Verspätung während der Stosszeiten — werktags "
+                         "6–9 Uhr morgens und 16–19 Uhr abends.")
+        col2.metric("Off-Peak: Ø Verspätung", f"{off.mean():.1f} s",
+                    help="Mittlere Verspätung ausserhalb der Stosszeiten "
+                         "(Nebenverkehrszeiten und Wochenende).")
+        col3.metric("Differenz", f"{(rush.mean() / off.mean() - 1) * 100:+.1f}%",
+                    help="Um wie viel Prozent die Rush-Hour unpünktlicher ist "
+                         "als die Off-Peak-Zeit.")
 
 
 # === TAB 3: Pendler-Insight (LLM) ===
