@@ -278,7 +278,10 @@ tab_karte, tab_tod, tab_insight, tab_about = st.tabs([
 
 
 # === TAB 1: Karte ===
-with tab_karte:
+@st.fragment
+def _karte_panel(selected_cantons):
+    """Karte als Fragment: Slider-Änderungen rerundern nur dieses Panel
+    (Heatmap/Insight bleiben stehen) -> Karten-Loader erscheint sofort."""
     st.header("Verspätungs-Hotspots auf der Schweizer Karte")
     st.caption("Pro Bahnhof: durchschnittliche Ankunftsverspätung (Sekunden). "
                "Farbskala von hellrot (pünktlich) bis dunkelrot (stark verspätet). "
@@ -404,16 +407,30 @@ with tab_karte:
     st.dataframe(top20, width="stretch", hide_index=True)
 
 
+with tab_karte:
+    _karte_panel(selected_cantons)
+
+
 # === TAB 2: Time-of-Day ===
-with tab_tod:
+@st.cache_data(show_spinner=False)
+def _tod_pivot(cantons_key: tuple) -> pd.DataFrame:
+    """Mittlere Verspätung je (Wochentag × Stunde), gecacht pro Kantons-Auswahl."""
+    d = get_filtered_df(cantons_key)
+    p = (d.groupby(["weekday", "hour"])["delay_arr_sec"].mean()
+         .reset_index()
+         .pivot(index="weekday", columns="hour", values="delay_arr_sec"))
+    return p.reindex(["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"])
+
+
+@st.fragment
+def _tod_panel(df):
+    """Tageszeit-Tab als Fragment: Selectbox-Wechsel rerundern nur dieses Panel,
+    nicht die ganze App. Heatmap ist gecacht -> Loader nur beim ersten Build."""
     st.header("Verspätung nach Tageszeit und Wochentag")
 
-    pivot = (df.groupby(["weekday", "hour"])["delay_arr_sec"]
-             .mean()
-             .reset_index()
-             .pivot(index="weekday", columns="hour", values="delay_arr_sec"))
-    pivot = pivot.reindex(["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"])
-
+    tod_ph = st.empty()
+    tod_ph.markdown(train_loader_html("Auswertung lädt …"), unsafe_allow_html=True)
+    pivot = _tod_pivot(tuple(selected_cantons))
     fig = px.imshow(
         pivot,
         labels=dict(x="Stunde", y="Wochentag", color="Mean Delay [s]"),
@@ -422,6 +439,7 @@ with tab_tod:
         text_auto=".0f",
     )
     fig.update_layout(height=400, margin=dict(l=40, r=20, t=30, b=40))
+    tod_ph.empty()
     st.plotly_chart(fig, width="stretch")
 
     # Drill-Down: Wochentag + Stunde auswählen → Kennzahlen passen sich an
@@ -484,6 +502,10 @@ with tab_tod:
         col3.metric("Differenz", f"{(rush.mean() / off.mean() - 1) * 100:+.1f}%",
                     help="Um wie viel Prozent die Rush-Hour unpünktlicher ist "
                          "als die Off-Peak-Zeit.")
+
+
+with tab_tod:
+    _tod_panel(df)
 
 
 # === TAB 3: Pendler-Insight (LLM) ===
