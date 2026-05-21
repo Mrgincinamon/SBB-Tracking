@@ -112,14 +112,13 @@ def bullets_slide(prs, title, bullets, notes="", body_top=1.4, size=18):
 def image_slide(prs, title, img_path: Path, caption="", notes=""):
     slide = content_slide(prs, title)
     if img_path.exists():
-        # Bild zentriert unter dem Titel einpassen
+        # Bild proportional in eine Box (max_w x max_h) einpassen, zentriert
         max_w, max_h = Inches(11.6), Inches(5.2)
-        pic = slide.shapes.add_picture(str(img_path), Inches(0.85), Inches(1.45),
-                                       height=max_h)
-        if pic.width > max_w:
-            pic.width = max_w
-            pic.height = int(max_w * pic.height / pic.width) if pic.width else max_h
-        # zentrieren
+        top = Inches(1.45)
+        pic = slide.shapes.add_picture(str(img_path), 0, top)  # native Groesse
+        ratio = min(max_w / pic.width, max_h / pic.height)
+        pic.width = int(pic.width * ratio)
+        pic.height = int(pic.height * ratio)
         pic.left = int((SW - pic.width) / 2)
     else:
         _para(_textbox(slide, Inches(1), Inches(3), Inches(11), Inches(1)),
