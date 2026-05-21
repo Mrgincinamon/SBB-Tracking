@@ -40,6 +40,68 @@ st.set_page_config(
 load_dotenv(utils.project_root() / ".env")
 MODEL_NAME = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
+# SBB-Zug-Loading-Animation: handgezeichneter SVG-Zug (kein Emoji) faehrt auf
+# Gleisen in SBB-Rot. CSS-Animation laeuft browserseitig waehrend des API-Calls.
+# Hinweis: Eigene SVG-Grafik im SBB-Farbstil (#EB0000), KEIN offizielles SBB-Asset.
+_TRAIN_SVG = """
+<svg width="475" height="50" viewBox="0 0 475 50" xmlns="http://www.w3.org/2000/svg">
+  <rect x="108" y="26" width="7" height="3" fill="#555"/>
+  <rect x="219" y="26" width="7" height="3" fill="#555"/>
+  <rect x="330" y="26" width="7" height="3" fill="#555"/>
+  <rect x="4" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="4" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="12" y="18" width="88" height="10" fill="#23262b"/><rect x="22" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="42" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="62" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="82" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="14" y="14" width="10" height="22" fill="#EB0000"/><rect x="86" y="14" width="10" height="22" fill="#EB0000"/><rect x="4" y="31" width="104" height="3" fill="#EB0000"/><rect x="4" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="26" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="86" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="115" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="115" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="123" y="18" width="88" height="10" fill="#23262b"/><rect x="133" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="153" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="173" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="193" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="125" y="14" width="10" height="22" fill="#EB0000"/><rect x="197" y="14" width="10" height="22" fill="#EB0000"/><rect x="115" y="31" width="104" height="3" fill="#EB0000"/><rect x="115" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="137" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="197" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="226" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="226" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="234" y="18" width="88" height="10" fill="#23262b"/><rect x="244" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="264" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="284" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="304" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="236" y="14" width="10" height="22" fill="#EB0000"/><rect x="308" y="14" width="10" height="22" fill="#EB0000"/><rect x="226" y="31" width="104" height="3" fill="#EB0000"/><rect x="226" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="248" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="308" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <rect x="337" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="337" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="345" y="18" width="88" height="10" fill="#23262b"/><rect x="355" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="375" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="395" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="415" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="347" y="14" width="10" height="22" fill="#EB0000"/><rect x="419" y="14" width="10" height="22" fill="#EB0000"/><rect x="337" y="31" width="104" height="3" fill="#EB0000"/><rect x="337" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="359" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="419" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
+  <path d="M441 13 q22 0 34 12 q2 4 1 11 H455 q-14 0 -14 -12 Z" fill="#EB0000"/>
+  <path d="M444 17 q15 1 23 9 H444 Z" fill="#15171a"/>
+  <circle cx="471" cy="31" r="2.4" fill="#fff4b0"/>
+</svg>
+"""
+
+def train_loader_html(text: str = "deine Anfrage wird ausgewertet") -> str:
+    """SBB-Zug-Loading-Animation. animation-delay negativ -> Zug ist sofort
+    sichtbar (startet mitten im Lauf), kein Warten bis er ins Bild faehrt."""
+    return f"""
+<style>
+@keyframes sbb-train-move {{
+  0%   {{ left: -490px; }}      /* Zug (~475px) startet komplett links ausserhalb */
+  100% {{ left: 100%; }}        /* linke Kante an rechtem Rand -> faehrt ganz raus */
+}}
+.sbb-loader-wrap {{ margin: 0.6rem 0 0.4rem 0; }}
+.sbb-track {{
+  position: relative;
+  height: 58px;
+  overflow: hidden;
+  border-bottom: 4px solid #9a9a9a;
+  background:
+    repeating-linear-gradient(90deg,#9a9a9a 0 5px,transparent 5px 24px)
+      bottom 0 left 0 / 100% 10px no-repeat,
+    linear-gradient(#bbbbbb,#bbbbbb)
+      bottom 4px left 0 / 100% 2px no-repeat;
+}}
+.sbb-train {{
+  position: absolute;
+  bottom: 8px;
+  left: -490px;
+  animation: sbb-train-move 4.5s linear infinite;
+  animation-delay: -1.8s;   /* startet mitten im Lauf -> sofort sichtbar */
+  will-change: left;
+}}
+.sbb-loader-text {{
+  text-align: center;
+  color: #EB0000;          /* SBB-Rot */
+  font-weight: 600;
+  margin-top: 8px;
+  letter-spacing: 0.3px;
+}}
+</style>
+<div class="sbb-loader-wrap">
+  <div class="sbb-track"><div class="sbb-train">{_TRAIN_SVG}</div></div>
+  <div class="sbb-loader-text">{text}</div>
+</div>
+"""
+
+
 # Streamlit-Standard "Running"-Icon (Schwimmer) oben rechts ausblenden —
 # wir nutzen stattdessen die eigene SBB-Zug-Animation als Loading-Indikator.
 st.markdown(
@@ -376,67 +438,6 @@ def question_pool() -> list[str]:
 
 N_PILLS = 6  # Anzahl gleichzeitig angezeigter Bubble-Fragen
 DEFAULT_Q = ""  # Feld startet leer, Placeholder lädt zum Fragen ein
-
-# SBB-Zug-Loading-Animation: handgezeichneter SVG-Zug (kein Emoji) faehrt auf
-# Gleisen in SBB-Rot. CSS-Animation laeuft browserseitig waehrend des API-Calls.
-# Hinweis: Eigene SVG-Grafik im SBB-Farbstil (#EB0000), KEIN offizielles SBB-Asset.
-_TRAIN_SVG = """
-<svg width="475" height="50" viewBox="0 0 475 50" xmlns="http://www.w3.org/2000/svg">
-  <rect x="108" y="26" width="7" height="3" fill="#555"/>
-  <rect x="219" y="26" width="7" height="3" fill="#555"/>
-  <rect x="330" y="26" width="7" height="3" fill="#555"/>
-  <rect x="4" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="4" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="12" y="18" width="88" height="10" fill="#23262b"/><rect x="22" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="42" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="62" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="82" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="14" y="14" width="10" height="22" fill="#EB0000"/><rect x="86" y="14" width="10" height="22" fill="#EB0000"/><rect x="4" y="31" width="104" height="3" fill="#EB0000"/><rect x="4" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="26" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="86" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
-  <rect x="115" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="115" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="123" y="18" width="88" height="10" fill="#23262b"/><rect x="133" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="153" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="173" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="193" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="125" y="14" width="10" height="22" fill="#EB0000"/><rect x="197" y="14" width="10" height="22" fill="#EB0000"/><rect x="115" y="31" width="104" height="3" fill="#EB0000"/><rect x="115" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="137" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="197" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
-  <rect x="226" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="226" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="234" y="18" width="88" height="10" fill="#23262b"/><rect x="244" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="264" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="284" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="304" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="236" y="14" width="10" height="22" fill="#EB0000"/><rect x="308" y="14" width="10" height="22" fill="#EB0000"/><rect x="226" y="31" width="104" height="3" fill="#EB0000"/><rect x="226" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="248" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="308" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
-  <rect x="337" y="13" width="104" height="23" rx="3" fill="#f6f6f6" stroke="#cfcfcf" stroke-width="1"/><rect x="337" y="13" width="104" height="4" rx="2" fill="#dcdcdc"/><rect x="345" y="18" width="88" height="10" fill="#23262b"/><rect x="355" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="375" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="395" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="415" y="18" width="3" height="10" fill="#f6f6f6"/><rect x="347" y="14" width="10" height="22" fill="#EB0000"/><rect x="419" y="14" width="10" height="22" fill="#EB0000"/><rect x="337" y="31" width="104" height="3" fill="#EB0000"/><rect x="337" y="34" width="104" height="4" fill="#4a4a4a"/><circle cx="359" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/><circle cx="419" cy="42" r="6" fill="#111" stroke="#888" stroke-width="1.5"/>
-  <path d="M441 13 q22 0 34 12 q2 4 1 11 H455 q-14 0 -14 -12 Z" fill="#EB0000"/>
-  <path d="M444 17 q15 1 23 9 H444 Z" fill="#15171a"/>
-  <circle cx="471" cy="31" r="2.4" fill="#fff4b0"/>
-</svg>
-"""
-
-def train_loader_html(text: str = "deine Anfrage wird ausgewertet") -> str:
-    """SBB-Zug-Loading-Animation. animation-delay negativ -> Zug ist sofort
-    sichtbar (startet mitten im Lauf), kein Warten bis er ins Bild faehrt."""
-    return f"""
-<style>
-@keyframes sbb-train-move {{
-  0%   {{ left: -490px; }}      /* Zug (~475px) startet komplett links ausserhalb */
-  100% {{ left: 100%; }}        /* linke Kante an rechtem Rand -> faehrt ganz raus */
-}}
-.sbb-loader-wrap {{ margin: 0.6rem 0 0.4rem 0; }}
-.sbb-track {{
-  position: relative;
-  height: 58px;
-  overflow: hidden;
-  border-bottom: 4px solid #9a9a9a;
-  background:
-    repeating-linear-gradient(90deg,#9a9a9a 0 5px,transparent 5px 24px)
-      bottom 0 left 0 / 100% 10px no-repeat,
-    linear-gradient(#bbbbbb,#bbbbbb)
-      bottom 4px left 0 / 100% 2px no-repeat;
-}}
-.sbb-train {{
-  position: absolute;
-  bottom: 8px;
-  left: -490px;
-  animation: sbb-train-move 4.5s linear infinite;
-  animation-delay: -1.8s;   /* startet mitten im Lauf -> sofort sichtbar */
-  will-change: left;
-}}
-.sbb-loader-text {{
-  text-align: center;
-  color: #EB0000;          /* SBB-Rot */
-  font-weight: 600;
-  margin-top: 8px;
-  letter-spacing: 0.3px;
-}}
-</style>
-<div class="sbb-loader-wrap">
-  <div class="sbb-track"><div class="sbb-train">{_TRAIN_SVG}</div></div>
-  <div class="sbb-loader-text">{text}</div>
-</div>
-"""
 
 # Deutsche Stoppwörter, die bei der Bahnhof-Keyword-Suche ignoriert werden
 _STOPWORDS = {
