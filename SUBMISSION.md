@@ -24,7 +24,7 @@ Der Code liegt zusätzlich öffentlich auf GitHub: https://github.com/Mrgincinam
 | Test-Suite (27 Tests) | ✅ grün | `tests/` |
 | Öffentliches GitHub-Repo | ✅ public | GitHub-Link oben |
 | Präsentation PDF | ✅ fertig | `presentation/SBB_Tracker_Praesentation.pdf` |
-| PowerPoint-Foliendeck (für Video) | ✅ fertig | `presentation/SBB_Tracker_Praesentation.pptx` |
+| PowerPoint-Foliendeck (für Video) | ✅ fertig | `presentation/SBB_Tracker_Praesentation.pptx` (Team) · `..._solo.pptx` (Solo-Aufnahme) |
 | **Video aufnehmen** | ⏳ offen | du + Patrick |
 | **ZHAW-Recherche** (Statista/Factiva/Scopus) | ⏳ optional | siehe `WAKEUP_STATUS.md` |
 | **ZIP packen + Moodle-Upload** | ⏳ offen | am 27.05. |

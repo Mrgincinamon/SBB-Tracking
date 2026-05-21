@@ -25,6 +25,7 @@ RESULTS = ROOT / "presentation" / "computed_results" / "results.json"
 SHOTS = ROOT / "presentation" / "screenshots"
 NB_PLOTS = SHOTS / "notebooks"
 OUT = ROOT / "presentation" / "SBB_Tracker_Praesentation.pptx"
+OUT_SOLO = ROOT / "presentation" / "SBB_Tracker_Praesentation_solo.pptx"
 
 SBB_RED = RGBColor(0xEB, 0x00, 0x00)
 DARK = RGBColor(0x1A, 0x1A, 0x1A)
@@ -149,7 +150,8 @@ def add_footers(prs):
         _para(tf2, str(i + 1), 9, LIGHTGREY, first=True, align=PP_ALIGN.RIGHT)
 
 
-def build():
+def build(solo=False):
+    out = OUT_SOLO if solo else OUT
     r = json.loads(RESULTS.read_text(encoding="utf-8"))
     w = r["test_welch_ttest"]; a = r["test_anova_linientyp"]
     o = r["test_ols"]; corr = r["test_correlation"]; dr = r["data_range"]
@@ -170,16 +172,26 @@ def build():
     _para(tf3, "Joël Hasler & Patrick Ferreira", 16, WHITE, bold=True, first=True)
     _para(tf3, "ZHAW Scientific Programming · FS2026 · Dozent: Mario Gellrich", 13, RGBColor(0xAA,0xAA,0xAA))
     add_notes(s,
-        "SPRECHTEXT: «Grüezi, wir sind Joël und Patrick. Wir haben die Pünktlichkeit "
-        "der SBB datengetrieben untersucht — auf Basis von 2.74 Millionen echten "
-        "Zug-Halten über 48 Tage. Unser Ziel war, aus offenen Daten ehrliche, "
-        "belastbare Aussagen abzuleiten.»\n\n"
-        "ORGANISATION: Legt vorher fest, wer welche Slides spricht (z. B. Joël 1–8, "
-        "Patrick 9–16) und nennt es kurz. In der Referentenansicht von PowerPoint "
-        "seht ihr diese Notizen, das Publikum nicht.\n\n"
-        "TON: ruhig, nicht auswendig runterleiern. Die Kernbotschaft des ganzen "
-        "Projekts ist: Die Effekte sind statistisch klar, aber praktisch klein — "
-        "und wir gehen ehrlich damit um.")
+        ("SPRECHTEXT: «Grüezi, ich bin Joël Hasler. Ich stelle unser Gruppenprojekt "
+         "zur Pünktlichkeit der SBB vor — eine datengetriebene Analyse von 2.74 "
+         "Millionen echten Zug-Halten über 48 Tage. Ziel war, aus offenen Daten "
+         "ehrliche, belastbare Aussagen abzuleiten.»\n\n"
+         "HINWEIS (nur für dich): Du präsentierst durchgehend allein. In der "
+         "Referentenansicht siehst du diese Notizen, das Publikum nicht. Achte auf "
+         "die vorgegebene Gesamtlänge (Anzahl Studierende × 5 Min).\n\n"
+         "TON: ruhig, nicht ablesen. Kernbotschaft: Die Effekte sind statistisch "
+         "klar, aber praktisch klein — und du gehst ehrlich damit um."
+         ) if solo else
+        ("SPRECHTEXT: «Grüezi, wir sind Joël und Patrick. Wir haben die Pünktlichkeit "
+         "der SBB datengetrieben untersucht — auf Basis von 2.74 Millionen echten "
+         "Zug-Halten über 48 Tage. Unser Ziel war, aus offenen Daten ehrliche, "
+         "belastbare Aussagen abzuleiten.»\n\n"
+         "ORGANISATION: Legt vorher fest, wer welche Slides spricht (z. B. Joël 1–8, "
+         "Patrick 9–16) und nennt es kurz. In der Referentenansicht von PowerPoint "
+         "seht ihr diese Notizen, das Publikum nicht.\n\n"
+         "TON: ruhig, nicht auswendig runterleiern. Die Kernbotschaft des ganzen "
+         "Projekts ist: Die Effekte sind statistisch klar, aber praktisch klein — "
+         "und wir gehen ehrlich damit um."))
 
     # ---- 2. Agenda ----
     bullets_slide(prs, "Agenda", [
@@ -487,17 +499,22 @@ def build():
         "Stack: Python 3.12 · pandas/scipy/statsmodels · SQLite · Streamlit · Anthropic",
         "Vielen Dank — gerne Fragen!",
     ], notes=
-        "SPRECHTEXT: «Alle Daten sind offen, der gesamte Code liegt öffentlich auf "
-        "GitHub und ist mit den Build-Skripten reproduzierbar. Vielen Dank, wir "
-        "freuen uns auf eure Fragen.»\n\n"
-        "Ruhig abschliessen, Blickkontakt, kurze Pause für Fragen lassen. Wer welche "
-        "Frage übernimmt, vorher grob klären.")
+        ("SPRECHTEXT: «Alle Daten sind offen, der gesamte Code liegt öffentlich auf "
+         "GitHub und ist reproduzierbar. Vielen Dank fürs Zuschauen.»\n\n"
+         "Ruhig abschliessen, kurze Pause am Ende lassen.") if solo else
+        ("SPRECHTEXT: «Alle Daten sind offen, der gesamte Code liegt öffentlich auf "
+         "GitHub und ist mit den Build-Skripten reproduzierbar. Vielen Dank, wir "
+         "freuen uns auf eure Fragen.»\n\n"
+         "Ruhig abschliessen, Blickkontakt, kurze Pause für Fragen lassen. Wer welche "
+         "Frage übernimmt, vorher grob klären."))
 
     add_footers(prs)
-    prs.save(str(OUT))
-    print(f"OK: PPTX erstellt {OUT}")
-    print(f"     {len(prs.slides._sldIdLst)} Slides, {OUT.stat().st_size/1024:.0f} KB")
+    prs.save(str(out))
+    tag = "SOLO" if solo else "TEAM"
+    print(f"OK [{tag}]: PPTX erstellt {out}")
+    print(f"     {len(prs.slides._sldIdLst)} Slides, {out.stat().st_size/1024:.0f} KB")
 
 
 if __name__ == "__main__":
-    build()
+    build(solo=False)   # Team-Version (du + Patrick)
+    build(solo=True)    # Solo-Version (nur du, für Alleinaufnahme)
