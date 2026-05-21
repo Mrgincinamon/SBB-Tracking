@@ -130,6 +130,34 @@ st.markdown(
         color: #ffffff !important;
         box-shadow: 0 2px 8px rgba(235,0,0,0.25) !important;
     }
+
+    /* Tabs im SBB-Stil: ruhige Groteske-Labels, kräftige rote Aktiv-Markierung */
+    [data-baseweb='tab-list'] {
+        gap: 30px !important;
+        border-bottom: 1px solid #e6e6e6 !important;
+    }
+    button[data-baseweb='tab'] {
+        padding: 8px 2px !important;
+        background: transparent !important;
+    }
+    button[data-baseweb='tab'] [data-testid='stMarkdownContainer'] p {
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        color: #6b6b6b !important;
+        letter-spacing: 0.1px;
+    }
+    button[data-baseweb='tab']:hover [data-testid='stMarkdownContainer'] p {
+        color: #EB0000 !important;
+    }
+    button[data-baseweb='tab'][aria-selected='true'] [data-testid='stMarkdownContainer'] p {
+        color: #EB0000 !important;
+        font-weight: 700 !important;
+    }
+    /* roter Aktiv-Indikator: kräftiger */
+    [data-baseweb='tab-highlight'] {
+        background-color: #EB0000 !important;
+        height: 3px !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -245,7 +273,7 @@ df = get_filtered_df(tuple(selected_cantons))
 # ---------------------------------------------------------------------------
 
 tab_karte, tab_tod, tab_insight, tab_about = st.tabs([
-    "🗺️ Karte", "🕐 Time-of-Day", "🤖 Pendler-Insight (LLM)", "ℹ️ Über"
+    "Karte", "Tageszeit", "Pendler-Insight", "Über"
 ])
 
 

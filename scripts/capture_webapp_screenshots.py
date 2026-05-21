@@ -15,7 +15,7 @@ OUT_DIR = Path(__file__).parent.parent / "presentation" / "screenshots"
 
 TABS = [
     ("01_karte", "Karte"),
-    ("02_time_of_day", "Time-of-Day"),
+    ("02_time_of_day", "Tageszeit"),
     ("03_pendler_insight", "Pendler-Insight"),
     ("04_about", "ber"),  # 'Über' Substring-Match
 ]
