@@ -648,7 +648,10 @@ Top-5 unpünktlichste Bahnhöfe gesamt:
 {top5_str}{weather_str}{station_block}{worst_days}"""
 
 
-with tab_insight:
+@st.fragment
+def _insight_panel(df):
+    """Pendler-Insight als Fragment: ein Pill-Klick rerundert nur dieses Panel,
+    nicht die ganze App (Karte/Heatmap bleiben stehen) -> Loader sofort sichtbar."""
     st.header("Wie pendelst du am Besten..? Frag mich :)")
 
     if "q_text" not in st.session_state:
@@ -668,7 +671,7 @@ with tab_insight:
     )
     if st.button("🎲 Andere Fragen", key="shuffle_pills"):
         st.session_state.pill_choices = random.sample(question_pool(), N_PILLS)
-        st.rerun()
+        st.rerun(scope="fragment")
 
     st.markdown("### Stell deine Frage zu Strecke, Zugtyp oder Tageszeit")
     insight_q = st.text_area(
@@ -701,10 +704,10 @@ with tab_insight:
         from anthropic import Anthropic
         client = Anthropic()
 
-        context = build_llm_context(df, insight_q)
-
-        # Button durch SBB-Zug-Animation ersetzen (Button weg waehrend Loading)
+        # ZUERST die Animation zeigen (Button ersetzen), DANN den Kontext bauen.
+        # So erscheint der Loader sofort und nicht erst nach den groupbys.
         action.markdown(train_loader_html(), unsafe_allow_html=True)
+        context = build_llm_context(df, insight_q)
         try:
             msg = client.messages.create(
                 model=MODEL_NAME,
@@ -746,6 +749,10 @@ with tab_insight:
         reasons.columns = ["Datum", "Tag", "% Verspaetet", "LLM-Ursache",
                            "Konfidenz", "Begruendung"]
         st.dataframe(reasons, width="stretch", hide_index=True)
+
+
+with tab_insight:
+    _insight_panel(df)
 
 
 # === TAB 4: Über ===
