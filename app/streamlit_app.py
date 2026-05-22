@@ -115,6 +115,10 @@ st.markdown(
     /* Standard-Streamlit-"Running"-Schwimmer oben rechts ausblenden */
     [data-testid='stStatusWidget'] { display: none; }
 
+    /* "Deploy"-Button oben rechts ausblenden (gehoert nicht in unsere App) */
+    [data-testid='stAppDeployButton'],
+    [data-testid='stDeployButton'] { display: none !important; }
+
     /* Pills (Beispiel-Fragen) im SBB-Stil: luftig, abgerundet, rot */
     [data-testid='stButtonGroup'] {
         gap: 10px !important;
