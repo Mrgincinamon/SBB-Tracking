@@ -750,17 +750,31 @@ def _insight_panel(df):
         generate = True
         st.session_state.auto_generate = False
 
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    key_ok = bool(api_key) and "REPLACE" not in api_key
+
     if generate and not insight_q.strip():
         st.warning("Bitte gib zuerst eine Frage ein oder klick eine Beispiel-Frage an.")
+    elif generate and not key_ok:
+        # Freundlicher Hinweis statt Python-Traceback, wenn kein API-Key gesetzt ist
+        st.info(
+            "🔑 **Kein gültiger Anthropic-API-Key gefunden.** Dieser Tab nutzt ein "
+            "Sprachmodell und braucht dafür einen eigenen Schlüssel.\n\n"
+            "**So geht's:** Im Projekt-Ordner `.env.example` zu `.env` kopieren und "
+            "`ANTHROPIC_API_KEY=sk-ant-...` eintragen (Key von "
+            "https://console.anthropic.com/settings/keys), dann die App neu starten.\n\n"
+            "Die Tabs **Karte** und **Tageszeit** funktionieren auch ohne Key."
+        )
     elif generate:
         from anthropic import Anthropic
-        client = Anthropic()
 
         # ZUERST die Animation zeigen (Button ersetzen), DANN den Kontext bauen.
         # So erscheint der Loader sofort und nicht erst nach den groupbys.
         action.markdown(train_loader_html(), unsafe_allow_html=True)
         context = build_llm_context(df, insight_q)
+        answer, err = None, None
         try:
+            client = Anthropic(api_key=api_key)
             msg = client.messages.create(
                 model=MODEL_NAME,
                 max_tokens=600,
@@ -780,18 +794,27 @@ def _insight_panel(df):
                 }],
             )
             answer = msg.content[0].text
+        except Exception as e:  # Netzwerk, ungültiger Key, Rate-Limit etc.
+            err = str(e)
         finally:
-            action.empty()  # Animation entfernen sobald Antwort da ist
+            action.empty()  # Animation entfernen sobald Antwort/Fehler da ist
 
         # Button wieder einblenden (neuer key, da alter in diesem Run verbraucht)
         st.session_state.gen_key += 1
         action.button("Antwort generieren", type="primary",
                       key=f"gen_btn_{st.session_state.gen_key}")
 
-        st.success(answer)
-
-        with st.expander("Welche Daten hat Claude gesehen? (Transparenz)"):
-            st.code(context, language="text")
+        if answer:
+            st.success(answer)
+            with st.expander("Welche Daten hat Claude gesehen? (Transparenz)"):
+                st.code(context, language="text")
+        else:
+            st.error(
+                "Die Anfrage an das Sprachmodell ist fehlgeschlagen. Bitte "
+                "Internetverbindung und API-Key prüfen und erneut versuchen."
+            )
+            with st.expander("Technische Details"):
+                st.code(err or "Unbekannter Fehler", language="text")
 
     # Anzeige der vorab analysierten Krisen-Tage
     if not load_llm_reasons().empty:
