@@ -169,7 +169,9 @@ Pendler-Insight-Tab.
 Eingesetzt wurde die KI breit: beim Schreiben und Debuggen des Python-Codes
 (Download-Skripte, Notebooks, Streamlit-App, Tests), beim Aufbau der
 statistischen Auswertung und der Visualisierungen sowie beim Verfassen der
-Dokumentation und der Präsentation.
+Dokumentation und der Präsentation. Auch die Folien der Video-Präsentation
+(inkl. der 6 User-Story-Slides mit selbst generierten Charakter-Illustrationen)
+wurden mit Claude erstellt.
 
 Eigene Leistung: _[bitte ehrlich ergänzen: Themen- und Fragestellung, Auswahl
 der Datenquellen, inhaltliche Entscheidungen, Prüfung und Korrektur der

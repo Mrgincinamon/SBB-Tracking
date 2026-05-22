@@ -1,12 +1,18 @@
-"""Generiert eine PowerPoint-Praesentation (16:9) fuer die Video-Aufnahme.
+"""Generiert das 16-Slide-BASIS-Deck (16:9) programmatisch.
 
-Zieht alle Kennzahlen aus presentation/computed_results/results.json (bleibt
-damit automatisch synchron mit Notebooks/PDF) und bettet die Notebook-Plots +
-Webapp-Screenshots ein. Jede Slide hat AUSFUEHRLICHE Sprechernotizen: Sprechtext,
-einfache Erklaerung der Fachbegriffe und moegliche Rueckfragen.
+Zieht alle Kennzahlen aus presentation/computed_results/results.json und bettet
+Notebook-Plots + Webapp-Screenshots ein. Jede Slide hat ausfuehrliche
+Sprechernotizen (Sprechtext, Begriffe einfach erklaert, moegliche Rueckfragen).
+
+HINWEIS: Das FINALE, kanonische Deck (presentation/SBB_Tracker_Praesentation.pptx,
+22 Slides) enthaelt zusaetzlich 6 manuell mit Claude erstellte User-Story-Slides
+(11-16, inkl. Charakter-Illustrationen). Dieses Skript reproduziert nur das
+urspruengliche 16-Slide-Basis-Deck und schreibt es bewusst nach *_base16.pptx,
+damit es das kanonische Deck NICHT ueberschreibt. Die Solo-Version des kanonischen
+Decks erzeugt scripts/make_solo_pptx.py.
 
 Ausfuehren:  venv\\Scripts\\python.exe scripts\\build_pptx.py
-Output:      presentation/SBB_Tracker_Praesentation.pptx
+Output:      presentation/SBB_Tracker_Praesentation_base16.pptx (+ _base16_solo)
 """
 
 from __future__ import annotations
@@ -24,8 +30,9 @@ ROOT = Path(__file__).parent.parent
 RESULTS = ROOT / "presentation" / "computed_results" / "results.json"
 SHOTS = ROOT / "presentation" / "screenshots"
 NB_PLOTS = SHOTS / "notebooks"
-OUT = ROOT / "presentation" / "SBB_Tracker_Praesentation.pptx"
-OUT_SOLO = ROOT / "presentation" / "SBB_Tracker_Praesentation_solo.pptx"
+# Bewusst *_base16, damit das kanonische 22-Slide-Deck nicht ueberschrieben wird.
+OUT = ROOT / "presentation" / "SBB_Tracker_Praesentation_base16.pptx"
+OUT_SOLO = ROOT / "presentation" / "SBB_Tracker_Praesentation_base16_solo.pptx"
 
 SBB_RED = RGBColor(0xEB, 0x00, 0x00)
 DARK = RGBColor(0x1A, 0x1A, 0x1A)
