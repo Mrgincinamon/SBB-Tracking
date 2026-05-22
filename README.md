@@ -173,17 +173,31 @@ Dokumentation und der Präsentation. Auch die Folien der Video-Präsentation
 (inkl. der 6 User-Story-Slides mit selbst generierten Charakter-Illustrationen)
 wurden mit Claude erstellt.
 
-Eigene Leistung: _[bitte ehrlich ergänzen: Themen- und Fragestellung, Auswahl
-der Datenquellen, inhaltliche Entscheidungen, Prüfung und Korrektur der
-KI-Ausgaben, Interpretation der Ergebnisse, Aufnahme des Videos. Hier ausserdem
-die Aufteilung zwischen Joël und Patrick festhalten.]_
+Eigene Leistung: Wir haben grösstenteils gemeinsam gearbeitet (Pair-Programming)
+und alle inhaltlichen Entscheidungen zu zweit getroffen – Themen- und
+Fragestellung, Auswahl der Datenquellen, Prüfung und Korrektur der KI-Ausgaben
+sowie die Interpretation der Ergebnisse. Schwerpunkte: Joël stärker bei
+Datenpipeline und Datenbank, Patrick mehr bei Statistik und Webapp. Dokumentation
+und Interpretation hat Patrick übernommen, Präsentation und Video hat Joël gemacht.
 
 ### Prompt-Vorgehen
 
 Wir haben iterativ gearbeitet: Aufgabe und Kontext beschreiben, Vorschlag
 prüfen, nachschärfen. Bei der Statistik haben wir gezielt auf wissenschaftliche
 Sorgfalt geachtet (Effektstärken statt nur p-Werte, ehrliche Limitationen).
-_[bitte ergänzen: ein bis zwei konkrete Beispiel-Prompts, falls gewünscht.]_
+Typischerweise haben wir nicht nach fertigem Code gefragt, sondern Ziel und
+Randbedingungen vorgegeben und das Ergebnis anschliessend gegen die Rohdaten
+und unsere Erwartungen geprüft.
+
+Zwei konkrete Beispiel-Prompts aus dem Projekt:
+
+- *„Baue ein Notebook, das mit scipy für Werktag vs. Wochenende einen Welch-t-Test
+  rechnet und zusätzlich Cohen's d sowie das 95%-Konfidenzintervall ausgibt.
+  Berichte den p-Wert, aber kommentiere ausdrücklich, dass bei n ≈ 2.7 Mio fast
+  jeder Unterschied signifikant wird – die Effektstärke ist entscheidend."*
+- *„Filtere die SBB-Ist-Daten auf `produkt_id == 'Zug'` und `betreiber_abk == 'SBB'`,
+  ordne jedem Bahnhof über einen KDTree die nächste Wetterstation zu und
+  begründe, warum die Distanzberechnung mit cos(Breite) korrigiert werden muss."*
 
 ### Reflexion
 
@@ -193,7 +207,20 @@ ständige Kontrolle nötig: An einer Stelle hat das Modell einen Fachpunkt falsc
 eingeordnet, an anderer Stelle hätten unsaubere Quelldaten unbemerkt das
 Ergebnis verzerrt. Wir haben das abgesichert, indem alle Zahlen über
 reproduzierbare Skripte und Tests entstehen und nicht von Hand übernommen
-werden. _[bitte ergänzen: eigene Einschätzung zu Nutzen und Grenzen.]_
+werden.
+
+Unser Fazit zu Nutzen und Grenzen: Am stärksten war die KI beim Aufsetzen von
+Standard-Bausteinen (Download-Logik, DataFrame-Transformationen, Plot-Gerüste,
+Test-Skelette) und als Sparringpartner für die statistische Sauberkeit – etwa
+beim Hinweis, Effektstärken und Konfidenzintervalle zu berichten und die
+Pseudoreplikation der 2.7 Mio Beobachtungen offen zu adressieren. Ihre Grenzen
+lagen überall dort, wo Fachurteil und Domänenwissen gefragt waren: die Auswahl
+sinnvoller Forschungsfragen, die Plausibilitätsprüfung der Rohdaten, die
+Einordnung der Grenzbahnhof-Effekte und die Entscheidung, welche Resultate
+inhaltlich überhaupt relevant sind. Diese Bewertungen mussten wir selbst
+treffen. Die wichtigste Lektion: Eine KI beschleunigt das Schreiben enorm, ersetzt
+aber nicht das Verstehen – ungeprüfte Ausgaben hätten uns mehrfach in die Irre
+geführt.
 
 ## Abgabe
 

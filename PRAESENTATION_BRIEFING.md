@@ -164,7 +164,7 @@ Dozent verlangt.
   `presentation/SBB_Tracker_Praesentation.pdf` (Abgabe-Dokument),
   `..._solo.pptx` / `....pptx` (Foliendecks fürs Video).
 - **Abgabe (Moodle, Frist 27.05.2026 23:59):** ZIP
-  `projectwork_SP_FS2026_group_XX.zip` mit dem PDF + `videopresentation_group_XX.mp4`.
+  `projectwork_SP_FS2026_group_11.zip` mit dem PDF + `videopresentation_group_11.mp4`.
 - **Video-Länge:** Anzahl Studierende × 5 Min (2er-Gruppe → ~10 Min).
 
 ---
@@ -172,7 +172,7 @@ Dozent verlangt.
 ## 10. Noch offen (eure Handlungen)
 
 - [ ] Video aufnehmen (Foliendeck + Sprechernotizen bereit; Solo-Variant vorhanden).
-- [ ] Gruppennummer im ZIP-Namen eintragen (`group_XX`).
+- [x] Gruppennummer = 11 → ZIP-Name `projectwork_SP_FS2026_group_11.zip`.
 - [ ] KI-Deklaration im README ausfüllen (Eigenleistung + Aufteilung) — Pflicht!
 - [ ] Optional: ZHAW-Recherche (Statista/Factiva/Scopus).
 - [ ] ZIP packen + auf Moodle hochladen.

@@ -5,7 +5,7 @@
 ## Was abgegeben wird (ZIP auf Moodle)
 
 ```
-projectwork_SP_FS2026_group_XX.zip      (XX = eure Gruppennummer)
+projectwork_SP_FS2026_group_11.zip      (Gruppe 11)
 ├── SBB_Tracker_Praesentation.pdf       offizielles Präsentationsdokument
 └── SBB_Tracker_Video.mp4               ~10-Min-Video (Demo + Erklärung)
 ```

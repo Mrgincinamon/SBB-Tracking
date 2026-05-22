@@ -557,7 +557,7 @@ pr, pp        = stats.pearsonr(sub[col], sub["delay_arr_sec"])  # Korrelation
 model = smf.ols(formula, data=sub).fit()                        # OLS (p je Koeffizient)
 ```
 
-**Min 8 — Abgabe auf Moodle**: ZIP `projectwork_SP_FS2026_group_XX.zip` (PDF + Video).
+**Min 8 — Abgabe auf Moodle**: ZIP `projectwork_SP_FS2026_group_11.zip` (PDF + Video).
 
 **Bonus 1 — Kreativität** (über den Kursstoff hinaus): OLS-Regression inkl. Diagnostik
 (Breusch-Pagan, VIF, Residuenplot), Tukey-HSD-Post-hoc, Effektstärken (Cohen's d, η²) +
@@ -631,4 +631,4 @@ tab_karte, tab_tod, tab_insight, tab_about = st.tabs(
 ---
 
 *Dieses Dokument wurde mit Unterstützung von Claude (Anthropic) erstellt.*
-*Letzte Aktualisierung: 2026-05-20.*
+*Letzte Aktualisierung: 2026-05-22.*
